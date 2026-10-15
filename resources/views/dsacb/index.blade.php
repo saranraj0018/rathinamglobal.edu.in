@@ -25,8 +25,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Sora:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
 
     <!-- Site chrome (needed by the shared footer), then this page's own theme. -->
-    <link rel="stylesheet" href="{{ storage_asset('assets/css/style.css') }}">
-    <link rel="stylesheet" href="{{ storage_asset('dsacb/style.css') }}">
+    <link rel="stylesheet" href="{{ versioned_asset('css/style.css') }}">
+    <link rel="stylesheet" href="{{ versioned_asset('css/dsacb/style.css') }}">
 @endpush
 
 @section('without-navigation', true)
@@ -380,5 +380,5 @@
 
 @push('scripts')
 
-<script src="{{ storage_asset('dsacb/script.js') }}" defer></script>
+<script src="{{ versioned_asset('js/dsacb/script.js') }}" defer></script>
 @endpush

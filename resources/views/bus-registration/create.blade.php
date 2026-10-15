@@ -14,7 +14,7 @@
   <script src="https://unpkg.com/lucide@1.28.0/dist/umd/lucide.min.js" defer></script>
 
   <!-- Custom Stylesheet -->
-  <link rel="stylesheet" href="{{ storage_asset('acbus/assets/styles.css') }}">
+  <link rel="stylesheet" href="{{ versioned_asset('css/acbus/style.css') }}">
 
   <!-- Cloudflare Turnstile Official API -->
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
@@ -905,5 +905,5 @@
       csrfToken: @js(csrf_token()),
     };
   </script>
-  <script src="{{ storage_asset('acbus/assets/script.js') }}" defer></script>
+  <script src="{{ versioned_asset('js/acbus/script.js') }}" defer></script>
 @endsection

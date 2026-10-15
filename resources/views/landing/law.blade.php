@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="{{ storage_asset('law/assets/style.css') }}" />
+  <link rel="stylesheet" href="{{ versioned_asset('css/law/style.css') }}" />
 @endpush
 
 @section('body')
@@ -436,5 +436,5 @@
     <img id="lightboxImg" alt="" />
   </div>
 
-  <script src="{{ storage_asset('law/assets/script.js') }}"></script>
+  <script src="{{ versioned_asset('js/law/script.js') }}"></script>
 @endsection
