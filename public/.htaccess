@@ -62,8 +62,8 @@
 </IfModule>
 
 # -----------------------------------------------------------------------------
-# Static asset caching (storage/ files). CSS and JS URLs carry a ?v=<mtime>
-# stamp from storage_asset(), so a long lifetime is safe. HTML is left to
+# Static asset caching. CSS and JS URLs carry a ?v=<mtime> stamp from
+# versioned_asset(), so a long lifetime is safe. HTML is left to
 # Laravel, which marks pages private because they carry session cookies.
 # -----------------------------------------------------------------------------
 <IfModule mod_expires.c>

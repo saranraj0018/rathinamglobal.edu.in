@@ -1,7 +1,8 @@
 # Website assets served through the public/storage symlink.
 #
-# The site's own images, stylesheets, scripts, videos and PDFs live here and
-# ARE tracked, so a fresh clone renders every page. Only junk is ignored.
+# The site's own images, PDFs and videos live here and are tracked, so a fresh
+# clone renders every page. Only junk is ignored. Stylesheets and scripts are
+# in public/css and public/js.
 #
 # To keep binaries out of git instead (as the old core-PHP repo did with
 # assets/), replace this file's rules with:

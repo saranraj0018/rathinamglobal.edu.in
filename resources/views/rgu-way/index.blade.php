@@ -29,8 +29,8 @@
     </script>
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ storage_asset('rgu-way/assets/css/style.css') }}" />
-    <link rel="stylesheet" href="{{ storage_asset('assets/css/extracted.css') }}">
+    <link rel="stylesheet" href="{{ versioned_asset('css/rgu-way/style.css') }}" />
+    <link rel="stylesheet" href="{{ versioned_asset('css/extracted.css') }}">
 @endpush
 
 @section('body')
@@ -46,5 +46,5 @@
     @include('rgu-way.partials.footer')
 
 <!-- Main JS -->
-<script src="{{ storage_asset('rgu-way/assets/js/main.js') }}"></script>
+<script src="{{ versioned_asset('js/rgu-way/main.js') }}"></script>
 @endsection

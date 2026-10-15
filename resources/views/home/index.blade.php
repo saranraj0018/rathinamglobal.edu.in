@@ -39,8 +39,8 @@
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Sora:wght@300;400;600;700;800&display=swap"></noscript>
 
     <style>{!! $criticalCss !!}</style>
-    <link rel="preload" href="{{ storage_asset('assets/css/home.bundle.css') }}" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="{{ storage_asset('assets/css/home.bundle.css') }}"></noscript>
+    <link rel="preload" href="{{ versioned_asset('css/home.bundle.css') }}" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="{{ versioned_asset('css/home.bundle.css') }}"></noscript>
 
 
     <link rel="preload" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
@@ -178,7 +178,7 @@ src="https://www.facebook.com/tr?id={{ config('rgu.analytics.meta_pixel_id') }}&
     @include('home.partials.faq-preview')
     @include('partials.footer')
 
-    <script src="{{ storage_asset('assets/js/script.js') }}" defer></script>
+    <script src="{{ versioned_asset('js/script.js') }}" defer></script>
 
     @include('partials.analytics')
 @endsection

@@ -6,18 +6,17 @@ use App\Support\CriticalCss;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
-use Illuminate\Contracts\Filesystem\Filesystem;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\File;
 use Throwable;
 
 /**
- * Regenerates the homepage CSS build artifacts on the public disk:
+ * Regenerates the homepage CSS build artifacts in public/css:
  *
- *   assets/css/home.bundle.css  tailwind.css + style.css + extracted.css, in
- *                               that cascade order, minified (loaded async)
- *   assets/css/critical.css     the above-the-fold subset, inlined into the
- *                               homepage <head> by App\Support\CriticalCss so
- *                               the hero paints without layout shift
+ *   css/home.bundle.css  tailwind.css + style.css + extracted.css, in that
+ *                        cascade order, minified (loaded async)
+ *   css/critical.css     the above-the-fold subset, inlined into the homepage
+ *                        <head> by App\Support\CriticalCss so the hero paints
+ *                        without layout shift
  *
  * Run it after editing tailwind.css, style.css or extracted.css.
  */
@@ -25,9 +24,9 @@ use Throwable;
 #[Description('Rebuild the homepage CSS bundle and its inlined critical CSS')]
 class BuildHomeCss extends Command
 {
-    private const SOURCES = ['assets/css/tailwind.css', 'assets/css/style.css', 'assets/css/extracted.css'];
+    private const SOURCES = ['css/tailwind.css', 'css/style.css', 'css/extracted.css'];
 
-    private const BUNDLE = 'assets/css/home.bundle.css';
+    private const BUNDLE = 'css/home.bundle.css';
 
     /** Views that make up the area above the fold. */
     private const ABOVE_THE_FOLD_VIEWS = ['partials.nav', 'home.partials.banner', 'home.partials.marquee'];
@@ -43,11 +42,9 @@ class BuildHomeCss extends Command
 
     public function handle(): int
     {
-        $disk = Storage::disk('public');
-
         foreach (self::SOURCES as $source) {
-            if (! $disk->exists($source)) {
-                $this->error("Missing source stylesheet: {$source}");
+            if (! File::exists(public_path($source))) {
+                $this->error("Missing source stylesheet: public/{$source}");
 
                 return self::FAILURE;
             }
@@ -55,21 +52,16 @@ class BuildHomeCss extends Command
 
         $bundle = '';
         foreach (self::SOURCES as $source) {
-            $bundle .= "\n/* ===== ".basename($source)." ===== */\n".$disk->get($source);
+            $bundle .= "\n/* ===== ".basename($source)." ===== */\n".File::get(public_path($source));
         }
         $bundle = $this->minify($bundle);
-        $disk->put(self::BUNDLE, $bundle);
+        File::put(public_path(self::BUNDLE), $bundle);
         $this->components->info(sprintf('%s: %.1f KB', self::BUNDLE, strlen($bundle) / 1024));
 
         $classes = $this->aboveTheFoldClasses();
-        $critical = $this->minify($this->criticalRules($disk, $classes));
+        $critical = $this->minify($this->criticalRules($classes));
 
-        // The sources live in assets/css/ and use url("../images/x"). Inlined
-        // into the page those must be document-relative; CriticalCss rewrites
-        // "./assets/" to the storage URL when it inlines the file.
-        $critical = preg_replace('#url\((["\']?)\.\./images/#i', 'url($1./assets/images/', $critical);
-
-        $disk->put(CriticalCss::PATH, $critical);
+        File::put(public_path(CriticalCss::PATH), $critical);
         $this->components->info(sprintf('%s: %.1f KB from %d above-the-fold classes', CriticalCss::PATH, strlen($critical) / 1024, count($classes)));
 
         return self::SUCCESS;
@@ -112,12 +104,12 @@ class BuildHomeCss extends Command
      *
      * @param  array<string, true>  $classes
      */
-    private function criticalRules(Filesystem $disk, array $classes): string
+    private function criticalRules(array $classes): string
     {
         $critical = '';
 
         foreach (self::SOURCES as $source) {
-            foreach ($this->splitBlocks($disk->get($source)) as $block) {
+            foreach ($this->splitBlocks(File::get(public_path($source))) as $block) {
                 $trimmed = ltrim($block);
 
                 if ($trimmed === '') {

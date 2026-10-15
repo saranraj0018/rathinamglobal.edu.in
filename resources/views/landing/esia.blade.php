@@ -11,7 +11,7 @@
   
   <link rel="icon" type="image/png" href="{{ storage_asset('esia/images/favicon.png') }}">
 
-  <link rel="stylesheet" href="{{ storage_asset('esia/style-new2.css') }}">
+  <link rel="stylesheet" href="{{ versioned_asset('css/esia/style.css') }}">
   
   <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-P39E7Z4T7C"></script>
@@ -1765,5 +1765,5 @@
       csrfToken: @js(csrf_token()),
     };
   </script>
-  <script src="{{ storage_asset('esia/script-new2.js') }}"></script>
+  <script src="{{ versioned_asset('js/esia/script.js') }}"></script>
 @endsection

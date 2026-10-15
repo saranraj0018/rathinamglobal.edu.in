@@ -40,7 +40,8 @@ Run the tests with `php artisan test`.
 | Shared partials | `resources/views/partials` (nav, footer, analytics), `components/courses-nav` |
 | Page views | `resources/views/{home,schools,programmes,research,events,faq,...}` |
 | Page content (tables, lists, FAQs, programme data) | `resources/data/**/*.php`, read through `App\Support\ContentRepository` |
-| Images, CSS, JS, PDFs, video | `storage/app/public/` (served at `/storage/...` via the symlink), referenced with `storage_asset('path')` |
+| Stylesheets and scripts | `public/css/` and `public/js/` (one sub-folder per section), referenced with `versioned_asset('css/...')` |
+| Images, PDFs, video | `storage/app/public/` (served at `/storage/...` via the symlink), referenced with `storage_asset('path')` |
 | Gated brochures, JD export | `storage/app/private/` |
 | Site settings (canonical host, analytics, form endpoints) | `config/rgu.php` |
 
@@ -49,13 +50,14 @@ Most content edits are data-file edits. For example, a new patent row goes in
 plus `resources/data/events/{slug}.php`, and a new programme page in
 `resources/data/programmes/{school}/{slug}.php`.
 
-`storage_asset()` adds a `?v=<mtime>` stamp to CSS and JS. The server caches those
-files for a year, so updated files reach browsers without renaming them.
+`versioned_asset()` adds a `?v=<mtime>` stamp to CSS and JS. The server caches those
+files for a year, so updated files reach browsers without renaming them. Images in
+stylesheets are referenced as `url("../storage/...")`, relative to `public/css`.
 
 ### Homepage CSS
 
-The homepage loads `assets/css/home.bundle.css` asynchronously and inlines
-`assets/css/critical.css`. After editing `tailwind.css`, `style.css` or
+The homepage loads `public/css/home.bundle.css` asynchronously and inlines
+`public/css/critical.css`. After editing `tailwind.css`, `style.css` or
 `extracted.css`, rebuild both:
 
 ```bash
@@ -81,12 +83,14 @@ php artisan rgu:build-css
    php artisan optimize
    ```
 4. Make `storage/` and `bootstrap/cache/` writable by the web server.
+5. Copy `storage/app/private/brochures/` and `storage/app/private/reports/` to the
+   server by hand. They are kept out of git because the repository is public.
 
 `public/.htaccess` forces HTTPS (it is aware of the nginx/Cloudflare proxy) and
 sets compression, caching and security headers.
 
-Some paths on the live server are not part of this codebase: `/global-affairs`,
-`/careers`, `/blog/`, `/news/`, `/fab/` and `/gc`. Either keep them as folders inside
+Some paths on the live server are not part of this codebase: `/blog/`, `/news/`,
+`/fab/` and `/gc`. Either keep them as folders inside
 `public/` or serve them separately. Otherwise they return 404 after cut-over.
 
 ## Migration notes

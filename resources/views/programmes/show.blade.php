@@ -12,8 +12,8 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Sora:wght@300;400;600;700;800&display=swap">
 
     <!-- Tailwind (compiled site stylesheet) + project styles -->
-    <link rel="stylesheet" href="{{ storage_asset('assets/css/tailwind.css') }}">
-    <link rel="stylesheet" href="{{ storage_asset('assets/css/style.css') }}">
+    <link rel="stylesheet" href="{{ versioned_asset('css/tailwind.css') }}">
+    <link rel="stylesheet" href="{{ versioned_asset('css/style.css') }}">
 
     <!-- Icons + Swiper for galleries -->
     <script src="https://unpkg.com/lucide@latest" defer></script>

@@ -15,7 +15,7 @@
 @endpush
 
 @push('head')
-    <link rel="stylesheet" href="{{ storage_asset('assets/css/extracted.css') }}">
+    <link rel="stylesheet" href="{{ versioned_asset('css/extracted.css') }}">
 @endpush
 
 @section('body')
