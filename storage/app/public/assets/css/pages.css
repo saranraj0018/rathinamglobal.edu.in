@@ -1,0 +1,88 @@
+/* Shared shell for section pages (DBT Star College Scheme and similar). */
+
+.rgu-accent-plum  { --rgu-c: #a855f7; --rgu-cbg: rgba(168, 85, 247, 0.14); }
+.rgu-accent-azure { --rgu-c: #38bdf8; --rgu-cbg: rgba(56, 189, 248, 0.14); }
+.rgu-accent-lime  { --rgu-c: #a3e635; --rgu-cbg: rgba(163, 230, 53, 0.14); }
+.rgu-accent-amber { --rgu-c: #fbbf24; --rgu-cbg: rgba(251, 191, 36, 0.14); }
+
+.rgu-page { margin: 0; background: #050508; color: #e2e8f0; font-family: 'Outfit', system-ui, sans-serif; }
+.rgu-page h1, .rgu-page h2, .rgu-page h3 { font-family: 'Sora', sans-serif; }
+
+.rgu-pagehero {
+    position: relative; overflow: hidden;
+    background: #080810; padding: 60px 0 54px;
+    border-bottom: 1px solid rgba(148, 163, 184, .12);
+}
+.rgu-pagehero__glow {
+    position: absolute; inset: 0; pointer-events: none;
+    background:
+        radial-gradient(64% 62% at 12% 6%, var(--rgu-cbg, rgba(168,85,247,.14)) 0%, transparent 62%),
+        radial-gradient(56% 52% at 88% 14%, rgba(56, 189, 248, .12) 0%, transparent 64%);
+}
+.rgu-pagehero > * { position: relative; z-index: 1; }
+
+.rgu-crumb { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; color: rgba(226, 232, 240, .5); }
+.rgu-crumb a { color: #d8b4fe; text-decoration: none; }
+.rgu-crumb a:hover { color: #fff; text-decoration: underline; }
+.rgu-crumb i { font-style: normal; opacity: .45; }
+
+.rgu-pagehero__title {
+    font-weight: 900; font-size: clamp(1.9rem, 4.4vw, 3.1rem); line-height: 1.12;
+    letter-spacing: -.03em; color: #f8fafc; margin: 16px 0 0;
+}
+.rgu-pagehero__lede { font-size: 15.5px; line-height: 1.72; color: rgba(226, 232, 240, .62); max-width: 680px; margin: 14px 0 0; }
+
+.rgu-kpis { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+.rgu-kpis > div {
+    flex: 0 1 auto; min-width: 140px; padding: 14px 20px;
+    border: 1px solid rgba(148, 163, 184, .16); background: rgba(15, 23, 42, .55); border-radius: 14px;
+}
+.rgu-kpis b { display: block; font-family: 'Sora', sans-serif; font-size: 20px; font-weight: 800; color: var(--rgu-c, #a855f7); }
+.rgu-kpis small { display: block; margin-top: 3px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: rgba(226,232,240,.45); }
+
+.rgu-sec { background: #080810; padding: 76px 0; }
+.rgu-sec__wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px; }
+.rgu-sec__head {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    gap: 28px; margin-bottom: 38px;
+}
+.rgu-sec__kick {
+    display: inline-block;
+    font-family: 'Outfit', sans-serif; font-size: 11px; font-weight: 700;
+    letter-spacing: .22em; text-transform: uppercase; color: #d8b4fe;
+    background: rgba(168, 85, 247, 0.12);
+    border: 1px solid rgba(216, 180, 254, 0.26);
+    border-radius: 9999px; padding: 7px 14px; margin-bottom: 16px;
+}
+.rgu-sec__kick--lime { color: #a3e635; background: rgba(163, 230, 53, .1); border-color: rgba(163, 230, 53, .28); }
+.rgu-sec__title {
+    font-family: 'Sora', sans-serif; font-weight: 900;
+    font-size: clamp(1.7rem, 3.6vw, 2.9rem); line-height: 1.14;
+    letter-spacing: -.03em; color: #f8fafc; margin: 0;
+}
+.rgu-em-lime {
+    font-style: normal;
+    background: linear-gradient(90deg, #a3e635, #34d399);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
+}
+.rgu-sec__lede {
+    font-family: 'Outfit', sans-serif; font-size: 15px; line-height: 1.72;
+    color: rgba(226, 232, 240, .6); max-width: 620px; margin: 14px 0 0;
+}
+
+.rgu-oblist { counter-reset: ob; display: grid; gap: 12px; list-style: none; margin: 0; padding: 0; }
+.rgu-oblist li {
+    counter-increment: ob; position: relative; padding: 18px 20px 18px 62px;
+    border: 1px solid rgba(148,163,184,.16); background: rgba(15,23,42,.5); border-radius: 14px;
+    font-size: 14.5px; line-height: 1.7; color: rgba(226,232,240,.68);
+}
+.rgu-oblist li::before {
+    content: counter(ob, decimal-leading-zero);
+    position: absolute; left: 18px; top: 17px;
+    font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 800; color: var(--rgu-c, #a855f7);
+}
+
+@media (max-width: 700px) {
+    .rgu-pagehero { padding: 44px 0 40px; }
+}
