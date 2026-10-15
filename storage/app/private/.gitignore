@@ -1,2 +1,5 @@
+# Private disk: never web-accessible and never committed. The repository is
+# public, so the gated brochures (brochures/*.pdf) and the leadership job
+# descriptions (reports/job-description.html) are copied to the server by hand.
 *
 !.gitignore
