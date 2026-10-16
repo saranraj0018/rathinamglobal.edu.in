@@ -12,6 +12,11 @@
 </head>
 <body @yield('body-attributes')>
 @yield('body')
+@if (config('rgu.voice_assistant.enabled'))
+    @sectionMissing('without-voice-assistant')
+        @include('components.voice-assistant')
+    @endif
+@endif
 @stack('scripts')
 </body>
 </html>

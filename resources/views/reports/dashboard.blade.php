@@ -2,6 +2,7 @@
 @extends('layouts.base')
 
 @section('title', 'Looker Studio Dashboard')
+@section('without-voice-assistant', true)
 
 @push('head')
     <style>

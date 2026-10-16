@@ -16,6 +16,8 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ResearchController;
 use App\Http\Controllers\RguWayController;
 use App\Http\Controllers\SchoolController;
+use App\Http\Controllers\VoiceAssistantController;
+use App\Http\Controllers\VoiceAssistantSpeechController;
 use App\Support\ContentRepository;
 use Illuminate\Support\Facades\Route;
 
@@ -96,6 +98,15 @@ Route::get('/acbus', [BusRegistrationController::class, 'create'])->name('bus-re
 Route::post('/acbus/submit', [BusRegistrationController::class, 'store'])
     ->middleware('throttle:bus-registration')
     ->name('bus-registration.store');
+
+/* Website voice assistant ---------------------------------------------- */
+// A web route (session + CSRF) so only pages of this site can call it.
+Route::post('/api/voice-assistant/chat', VoiceAssistantController::class)
+    ->middleware('throttle:voice-assistant')
+    ->name('voice-assistant.chat');
+Route::post('/api/voice-assistant/speech', VoiceAssistantSpeechController::class)
+    ->middleware('throttle:voice-assistant-speech')
+    ->name('voice-assistant.speech');
 
 /* Internal dashboards ---------------------------------------------------- */
 Route::prefix('report')->name('reports.')->controller(ReportController::class)->group(function (): void {

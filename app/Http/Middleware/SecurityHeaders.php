@@ -19,7 +19,8 @@ class SecurityHeaders
         'X-Content-Type-Options' => 'nosniff',
         'Referrer-Policy' => 'strict-origin-when-cross-origin',
         'X-Frame-Options' => 'SAMEORIGIN',
-        'Permissions-Policy' => 'geolocation=(), microphone=(), camera=()',
+        // The site's own pages may ask for the microphone (voice assistant); embeds may not.
+        'Permissions-Policy' => 'geolocation=(), microphone=(self), camera=()',
     ];
 
     /**

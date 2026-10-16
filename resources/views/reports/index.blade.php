@@ -1,6 +1,7 @@
 @extends('layouts.base')
 
 @section('title', 'Dashboard Map — Rathinam Group of Institutions')
+@section('without-voice-assistant', true)
 
 @push('head')
 
