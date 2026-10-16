@@ -119,7 +119,7 @@
       noVoiceSupport: "Voice calls need Chrome, Edge or Safari. Please open this page in one of those browsers to talk to us.",
       insecure: "Voice calls need a secure (https) connection. Please open the https version of this page to talk to us.",
       langSwitched: "Switched to English.",
-      noVoiceForLanguage: "This browser has no voice for the selected language, so answers are shown as text only.",
+      noVoiceForLanguage: "This computer has no Tamil voice, so Tamil answers are shown as text below. Switch to English, or use a phone or a PC with a Tamil voice installed.",
       micDenied: "Microphone access is blocked. Click the lock icon next to the address bar, allow the microphone for this site, then tap the mic.",
       serviceDenied: "Speech recognition isn’t available for this language or is blocked in this browser.",
       noSpeech: "I didn’t hear anything. Press the mic and try again.",
@@ -182,7 +182,7 @@
       noVoiceSupport: "குரல் அழைப்புக்கு Chrome, Edge அல்லது Safari தேவை. எங்களுடன் பேச இந்தப் பக்கத்தை அவற்றில் ஒன்றில் திறக்கவும்.",
       insecure: "குரல் அழைப்புக்குப் பாதுகாப்பான (https) இணைப்பு தேவை. எங்களுடன் பேச இந்தப் பக்கத்தின் https பதிப்பைத் திறக்கவும்.",
       langSwitched: "தமிழுக்கு மாற்றப்பட்டது.",
-      noVoiceForLanguage: "இந்த உலாவியில் தமிழ்க் குரல் இல்லை, எனவே பதில்கள் எழுத்தாக மட்டுமே காட்டப்படும்.",
+      noVoiceForLanguage: "இந்தக் கணினியில் தமிழ்க் குரல் இல்லை, எனவே தமிழ்ப் பதில்கள் கீழே எழுத்தாகக் காட்டப்படும். ஆங்கிலத்துக்கு மாறவும், அல்லது தமிழ்க் குரல் உள்ள கைபேசி / கணினியைப் பயன்படுத்தவும்.",
       micDenied: "மைக்ரோஃபோன் அனுமதி மறுக்கப்பட்டுள்ளது. முகவரிப் பட்டையின் அருகிலுள்ள பூட்டுக் குறியைக் கிளிக் செய்து, இந்தத் தளத்திற்கு மைக்ரோஃபோனை அனுமதித்து, மைக்கைத் தட்டுங்கள்.",
       serviceDenied: "இந்த உலாவியில் இந்த மொழிக்கான பேச்சு அறிதல் கிடைக்கவில்லை.",
       noSpeech: "எதுவும் கேட்கவில்லை. மைக்கை அழுத்தி மீண்டும் முயலுங்கள்.",
@@ -596,7 +596,10 @@
   }
 
   function addNote(text) {
-    if (text) addMessage("note", text);
+    if (!text) return;
+    // A call has no visible message log, so notes go under the team instead.
+    if (state.view === "call") el.callNote.textContent = text;
+    addMessage("note", text);
   }
 
   function noteOnce(key) {
