@@ -14,6 +14,7 @@
  * schools  — display names for resources/data/schools/{slug}.php
  * facts    — extra entries: id, category, title, question, answer, route (named route) or url
  * aliases  — search synonyms: a visitor word (or Tamil word stem) => English terms in this content
+ * phrases  — degrees spelled letter by letter ("பி எஸ் சி", dots ignored) => English terms
  * personas — the "AI team" a visitor picks from: name, role, voice (female|male), image (under public/),
  *            focus (steers the AI's emphasis, never its rules), greeting and suggestions per language.
  *            To use real photos, replace the image files (square, at least 240px) and keep the keys.
@@ -157,6 +158,52 @@ return [
         'கணினி' => ['computer'],
         'செயற்கை' => ['artificial', 'intelligence'],
         'பேருந்து' => ['bus'],
+        'பட்டியல்' => ['list'],
+
+        // English words as Tamil speech recognition writes them ("பிஎஸ்சி ப்ரோக்ராம்ஸ் லிஸ்ட்")
+        'பிஎஸ்சி' => ['bsc'],
+        'எம்எஸ்சி' => ['msc'],
+        'பிடெக்' => ['btech'],
+        'பிகாம்' => ['bcom'],
+        'எம்காம்' => ['mcom'],
+        'பிபிஏ' => ['bba'],
+        'எம்பிஏ' => ['mba'],
+        'பிசிஏ' => ['bca'],
+        'எம்சிஏ' => ['mca'],
+        'பிஏ' => ['ba'],
+        'எம்ஏ' => ['ma'],
+        'பிஹெச்டி' => ['phd', 'research'],
+        'ப்ரோக்ராம' => ['programs', 'programmes'],
+        'புரோகிராம' => ['programs', 'programmes'],
+        'புரோக்ராம' => ['programs', 'programmes'],
+        'கோர்ஸ' => ['programs', 'programmes'],
+        'கோர்ச' => ['programs', 'programmes'],
+        'டிகிரி' => ['programs', 'programmes'],
+        'லிஸ்ட' => ['list'],
+        'ஃபீஸ' => ['fees'],
+        'பீஸ' => ['fees'],
+        'அட்மிஷன' => ['admission', 'admissions'],
+        'ஹாஸ்டல' => ['hostel'],
+        'பிளேஸ்மென்ட' => ['placement', 'placements'],
+        'ஸ்காலர்ஷிப' => ['scholarships'],
+        'இன்ஜினியரிங' => ['engineering'],
+        'இஞ்சினியரிங' => ['engineering'],
+        'கம்ப்யூட்டர' => ['computer'],
+    ],
+
+    'phrases' => [
+        'பி எஸ் சி' => ['bsc'],
+        'எம் எஸ் சி' => ['msc'],
+        'பி இ' => ['be'],
+        'பி டெக்' => ['btech'],
+        'பி காம்' => ['bcom'],
+        'எம் காம்' => ['mcom'],
+        'பி பி ஏ' => ['bba'],
+        'எம் பி ஏ' => ['mba'],
+        'பி சி ஏ' => ['bca'],
+        'எம் சி ஏ' => ['mca'],
+        'பி ஏ' => ['ba'],
+        'எம் ஏ' => ['ma'],
     ],
 
     'personas' => [

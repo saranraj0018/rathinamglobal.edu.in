@@ -59,6 +59,41 @@ class VoiceAssistantControllerTest extends TestCase
         $this->assertStringContainsString('admission@rathinam.in', $response->json('answer'));
     }
 
+    public function test_a_degree_is_answered_with_its_programmes_from_every_school(): void
+    {
+        $answer = $this->postJson(self::ENDPOINT, ['message' => 'B.Sc programmes list', 'language' => 'en'])
+            ->assertOk()
+            ->assertJson(['success' => true, 'mode' => 'knowledge-base'])
+            ->json('answer');
+
+        $this->assertStringContainsString('B.Sc Computer Science', $answer);
+        $this->assertStringContainsString('B.Sc Microbiology', $answer);
+        $this->assertStringContainsString('B.Sc Fashion Design', $answer);
+        $this->assertStringNotContainsString('B.Sc Programmes', $answer);
+        $this->assertStringNotContainsString('M.Sc', $answer);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function tamilScriptDegreeQuestions(): array
+    {
+        return [
+            'English words in Tamil script' => ['பிஎஸ்சி ப்ரோக்ராம்ஸ் லிஸ்ட்'],
+            'degree spelled letter by letter' => ['பி. எஸ். சி கோர்ஸ் என்னென்ன இருக்கு'],
+        ];
+    }
+
+    #[DataProvider('tamilScriptDegreeQuestions')]
+    public function test_degree_names_written_in_tamil_script_are_understood(string $message): void
+    {
+        $answer = $this->postJson(self::ENDPOINT, ['message' => $message, 'language' => 'ta'])
+            ->assertOk()
+            ->json('answer');
+
+        $this->assertStringContainsString('B.Sc Computer Science', $answer);
+    }
+
     public function test_unknown_question_points_to_the_admissions_contact_instead_of_guessing(): void
     {
         $this->postJson(self::ENDPOINT, ['message' => 'Who won the football world cup in 1986?'])

@@ -3,6 +3,7 @@
 namespace App\Services\VoiceAssistant;
 
 use App\Support\ContentRepository;
+use Illuminate\Support\Str;
 
 /**
  * Approved, public content the voice assistant may answer from: the FAQ,
@@ -144,7 +145,7 @@ class KnowledgeBase
         }
 
         // Curated entries first: they win ties and keep their place when questions repeat.
-        $entries = [...$this->factEntries(), ...$this->faqEntries(), ...$this->schoolEntries(), ...$this->site->entries()];
+        $entries = [...$this->factEntries(), ...$this->faqEntries(), ...$this->schoolEntries(), ...$this->degreeEntries(), ...$this->site->entries()];
 
         // The FAQ repeats a few questions across categories; keep the first.
         $unique = [];
@@ -253,6 +254,46 @@ class KnowledgeBase
     }
 
     /**
+     * One entry per degree ("B.Sc", "MBA", ...) listing its programmes across
+     * every school, so "list the B.Sc programmes" has a single complete answer.
+     *
+     * @return array<int, Entry>
+     */
+    private function degreeEntries(): array
+    {
+        $degrees = [];
+
+        foreach ($this->content->get('voice-assistant')['schools'] as $slug => $name) {
+            foreach ($this->schoolProgrammes($slug) as $programme) {
+                // Group headings such as "B.Sc Programmes" or "B.Com — AI & ..." are not programmes themselves.
+                if (preg_match('/\bProgrammes$|—/iu', $programme) === 1) {
+                    continue;
+                }
+
+                $degrees[strtok($programme, ' ')][$name][] = $programme;
+            }
+        }
+
+        $entries = [];
+
+        foreach ($degrees as $degree => $schools) {
+            $count = array_sum(array_map('count', $schools));
+            $lists = array_map(fn (string $school, array $programmes): string => $school.': '.implode(', ', $programmes), array_keys($schools), $schools);
+
+            $entries[] = [
+                'id' => 'degree-'.Str::slug($degree),
+                'category' => 'Programmes',
+                'title' => $degree.' programmes',
+                'question' => 'Which '.$degree.' programmes (programs or courses) are offered? Full list.',
+                'answer' => sprintf('The university offers %d %s %s. %s.', $count, $degree, Str::plural('programme', $count), implode('. ', $lists)),
+                'url' => route('home'),
+            ];
+        }
+
+        return $entries;
+    }
+
+    /**
      * Degree names listed on a school's page, e.g. "B.E Mechanical Engineering".
      *
      * @return array<int, string>
@@ -291,6 +332,15 @@ class KnowledgeBase
     {
         $aliases = $this->content->get('voice-assistant')['aliases'];
         $terms = [];
+
+        // Speech recognition may spell a degree letter by letter ("பி எஸ் சி"), which words() splits apart.
+        $spaced = ' '.trim((string) preg_replace('/[\s.]+/u', ' ', mb_strtolower($query))).' ';
+
+        foreach ($this->content->get('voice-assistant')['phrases'] as $phrase => $replacements) {
+            if (str_contains($spaced, ' '.$phrase.' ')) {
+                array_push($terms, ...$replacements);
+            }
+        }
 
         foreach ($this->words($query) as $word) {
             $mapped = null;
