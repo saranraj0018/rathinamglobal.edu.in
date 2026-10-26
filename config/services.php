@@ -45,7 +45,8 @@ return [
 
     /*
     | Google Cloud Text-to-Speech: reads the voice assistant's answers aloud in
-    | browsers that have no voice for the language (most desktops lack Tamil).
+    | browsers that have no natural-sounding voice for the language (most
+    | desktops lack Tamil). Chirp 3 HD voices are Google's most human-sounding.
     | Without a key, answers are spoken only where the browser has a voice.
     | Voice names: https://cloud.google.com/text-to-speech/docs/voices
     */
@@ -54,12 +55,12 @@ return [
         'timeout' => (int) env('GOOGLE_TTS_TIMEOUT', 15),
         'voices' => [
             'ta' => [
-                'female' => env('GOOGLE_TTS_VOICE_TA_FEMALE', 'ta-IN-Wavenet-A'),
-                'male' => env('GOOGLE_TTS_VOICE_TA_MALE', 'ta-IN-Wavenet-B'),
+                'female' => env('GOOGLE_TTS_VOICE_TA_FEMALE', 'ta-IN-Chirp3-HD-Aoede'),
+                'male' => env('GOOGLE_TTS_VOICE_TA_MALE', 'ta-IN-Chirp3-HD-Charon'),
             ],
             'en' => [
-                'female' => env('GOOGLE_TTS_VOICE_EN_FEMALE', 'en-IN-Wavenet-A'),
-                'male' => env('GOOGLE_TTS_VOICE_EN_MALE', 'en-IN-Wavenet-B'),
+                'female' => env('GOOGLE_TTS_VOICE_EN_FEMALE', 'en-IN-Chirp3-HD-Aoede'),
+                'male' => env('GOOGLE_TTS_VOICE_EN_MALE', 'en-IN-Chirp3-HD-Charon'),
             ],
         ],
     ],

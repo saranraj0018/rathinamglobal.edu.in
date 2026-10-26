@@ -68,6 +68,8 @@
   /* Speech engines don't report a voice's gender, so it is guessed from well-known voice names. */
   const FEMALE_VOICE = /female|woman|neerja|pallavi|heera|kalpana|swara|veena|lekha|aditi|raveena|kajal|zira|samantha|karen|moira|tessa|susan|hazel|jenny|aria|sonia|libby|natasha|google us english|google uk english female/i;
   const MALE_VOICE = /\bmale\b|\bman\b|prabhat|valluvar|ravi|hemant|rishi|madhur|david|mark|george|daniel|alex|fred|guy|ryan|thomas|google uk english male/i;
+  /* Neural voices (Edge "Online (Natural)", Safari "Enhanced"/"Premium", Chrome's online Google voices) sound human; older local ones sound robotic. */
+  const NATURAL_VOICE = /natural|neural|online|premium|enhanced/i;
   const TAMIL_SCRIPT = /[\u0B80-\u0BFF]/;
   const PERSONAL_DATA = /[^\s@]+@[^\s@]+\.[a-z]{2,}|(?:\+?\d[\s-]?){10,}/i;
 
@@ -832,15 +834,26 @@
     return gender === "female" ? female : !female && MALE_VOICE.test(voice.name);
   }
 
-  /** The best voice for the language, preferring the persona's gender; `matched` says whether that worked. */
+  function isNatural(voice) {
+    return voice.localService === false || NATURAL_VOICE.test(voice.name);
+  }
+
+  /**
+   * The best voice for the language, preferring the persona's gender and then a natural-sounding voice;
+   * `matched` says whether the gender preference worked and `natural` whether the voice sounds human.
+   */
   function voiceFor(lang, gender) {
     const code = LANG_CODES[lang].toLowerCase();
     const normalised = state.voices.map((voice) => ({ voice, lang: voice.lang.replace("_", "-").toLowerCase() }));
     const exact = normalised.filter((v) => v.lang === code);
     const candidates = exact.length ? exact : normalised.filter((v) => v.lang === lang || v.lang.startsWith(`${lang}-`));
-    const preferred = gender ? candidates.find((v) => isGender(v.voice, gender)) : null;
-    const match = preferred || candidates[0];
-    return { voice: match ? match.voice : null, matched: Boolean(preferred) };
+    const score = (v) => (gender && isGender(v.voice, gender) ? 2 : 0) + (isNatural(v.voice) ? 1 : 0);
+    const match = candidates.reduce((best, v) => (!best || score(v) > score(best) ? v : best), null);
+    return {
+      voice: match ? match.voice : null,
+      matched: Boolean(match && gender && isGender(match.voice, gender)),
+      natural: Boolean(match && isNatural(match.voice)),
+    };
   }
 
   /** Splits text into short chunks: some browsers stop long utterances part-way. */
@@ -861,8 +874,11 @@
     if (state.muted) { onDone(); return; }
 
     loadVoices();
-    const hasBrowserVoice = Boolean(synth) && Boolean(voiceFor(lang).voice);
-    if (!hasBrowserVoice && config.speechEndpoint) { speakWithServer(text, lang, onDone); return; }
+    // The server's voices sound human, so they are used unless the browser has a natural voice of the persona's gender.
+    const gender = PERSONAS[state.persona]?.voice;
+    const browser = synth ? voiceFor(lang, gender) : { voice: null };
+    const hasNaturalBrowserVoice = Boolean(browser.voice) && browser.natural && (browser.matched || !gender);
+    if (!hasNaturalBrowserVoice && config.speechEndpoint) { speakWithServer(text, lang, onDone); return; }
     speakWithBrowser(text, lang, onDone);
   }
 
@@ -909,8 +925,9 @@
     const gender = PERSONAS[state.persona]?.voice;
     const { voice, matched } = voiceFor(lang, gender);
     const english = lang === "en" ? null : voiceFor("en", gender);
-    // Without a voice of the right gender, a pitch shift keeps personas sounding different.
-    const pitch = matched || !gender ? 1 : gender === "male" ? 0.8 : 1.15;
+    // Without a voice of the right gender, a slight pitch shift keeps personas sounding different;
+    // a larger shift makes the voice sound artificial.
+    const pitch = matched || !gender ? 1 : gender === "male" ? 0.9 : 1.08;
     // Without a voice for the language, parts already in English (e.g. knowledge-base text) are
     // still read with an English voice; Tamil script is never read with an English voice.
     const parts = chunks(text)
