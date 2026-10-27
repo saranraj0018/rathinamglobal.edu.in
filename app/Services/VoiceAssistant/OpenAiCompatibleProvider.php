@@ -45,7 +45,7 @@ class OpenAiCompatibleProvider implements ChatProvider
                 ->post('/chat/completions', [
                     'model' => $this->model,
                     'messages' => $messages,
-                    'temperature' => 0.2,
+                    'temperature' => 0,
                     'max_tokens' => $this->maxTokens,
                 ]);
         } catch (ConnectionException $e) {

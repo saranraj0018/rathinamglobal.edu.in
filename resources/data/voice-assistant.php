@@ -105,7 +105,7 @@ return [
             'title' => 'Hostel facilities',
             'question' => 'Does Rathinam provide hostel facilities?',
             'answer' => 'Yes. Separate hostel facilities for boys and girls are provided within or very close to the campus.',
-            'answer_ta' => 'ஆம். ஆண்கள் மற்றும் பெண்களுக்கு தனித்தனி விடுதி வசதிகள் வளாகத்திற்கு உள்ளேயோ அல்லது மிக அருகிலோ வழங்கப்படுகின்றன.',
+            'answer_ta' => 'இருக்கு. பசங்களுக்கும் பொண்ணுங்களுக்கும் தனித்தனி ஹாஸ்டல் இருக்கு, கேம்பஸ் உள்ளேயே இல்லனா ரொம்ப பக்கத்துலயே இருக்கு.',
             'route' => 'home',
         ],
         [
@@ -114,7 +114,7 @@ return [
             'title' => 'Hostel location',
             'question' => 'Where are the hostels located?',
             'answer' => 'Hostels are located within the campus or very close to the campus for easy academic access.',
-            'answer_ta' => 'கல்வி நடவடிக்கைகளை எளிதாக அணுக, விடுதிகள் வளாகத்திற்கு உள்ளேயோ அல்லது மிக அருகிலோ அமைந்துள்ளன.',
+            'answer_ta' => 'ஹாஸ்டல் கேம்பஸ் உள்ளேயே இல்லனா ரொம்ப பக்கத்துலயே இருக்கு, அதனால கிளாஸுக்கு சீக்கிரம் போயிடலாம்.',
             'route' => 'home',
         ],
         [
@@ -123,7 +123,7 @@ return [
             'title' => 'Separate hostels for boys and girls',
             'question' => 'Are hostels separate for boys and girls?',
             'answer' => 'Yes. Separate hostels are available for boys and girls with dedicated wardens.',
-            'answer_ta' => 'ஆம். ஆண்கள் மற்றும் பெண்களுக்கு தனித்தனி விடுதிகள் உள்ளன, ஒவ்வொன்றிற்கும் பிரத்யேக வார்டன் உள்ளனர்.',
+            'answer_ta' => 'இருக்கு. பசங்களுக்கும் பொண்ணுங்களுக்கும் தனித்தனி ஹாஸ்டல் இருக்கு, ஒவ்வொன்னுக்கும் தனி வார்டன் இருக்காங்க.',
             'route' => 'home',
         ],
         [
@@ -132,7 +132,7 @@ return [
             'title' => 'Hostel room types',
             'question' => 'What types of hostel rooms are available?',
             'answer' => '2-sharing, 4-sharing, 6-sharing, 8-sharing, and dormitory rooms are available.',
-            'answer_ta' => '2, 4, 6, 8 பேர் தங்கும் அறைகள் மற்றும் டார்மிட்டரி அறைகள் கிடைக்கின்றன.',
+            'answer_ta' => '2, 4, 6, 8 பேர் தங்குற ரூம்களும் டார்மிட்டரி ரூம்களும் இருக்கு.',
             'route' => 'home',
         ],
         [
@@ -141,7 +141,7 @@ return [
             'title' => 'Hostel room capacity',
             'question' => 'How many students can stay in one hostel room?',
             'answer' => 'Depending on the category, 2 to 8 students can stay in one room.',
-            'answer_ta' => 'வகையைப் பொருத்து, ஒரு அறையில் 2 முதல் 8 மாணவர்கள் தங்கலாம்.',
+            'answer_ta' => 'ரூம் வகையைப் பொறுத்து, ஒரு ரூம்ல 2 பேர்ல இருந்து 8 பேர் வரை தங்கலாம்.',
             'route' => 'home',
         ],
         [
@@ -150,7 +150,7 @@ return [
             'title' => 'Hostel room furniture',
             'question' => 'What furniture is provided in hostel rooms?',
             'answer' => 'Beds, study tables, chairs, and cupboards or luggage storage are provided.',
-            'answer_ta' => 'கட்டில்கள், படிப்பு மேசைகள், நாற்காலிகள், அலமாரிகள் அல்லது பொருட்களை வைக்கும் இடம் வழங்கப்படுகின்றன.',
+            'answer_ta' => 'கட்டில், படிக்கிற டேபிள், நாற்காலி, அலமாரி எல்லாம் குடுப்பாங்க, பொருட்கள் வைக்கவும் இடம் இருக்கு.',
             'route' => 'home',
         ],
         [
@@ -159,7 +159,7 @@ return [
             'title' => 'Hostel Wi-Fi',
             'question' => 'Is Wi-Fi available in the hostel?',
             'answer' => 'Yes. Wi-Fi connectivity is available throughout the hostel premises.',
-            'answer_ta' => 'ஆம். விடுதி வளாகம் முழுவதும் வைஃபை இணைப்பு வசதி உள்ளது.',
+            'answer_ta' => 'இருக்கு, ஹாஸ்டல் முழுக்க வைஃபை இருக்கு, நீங்க தாராளமா யூஸ் பண்ணிக்கலாம்.',
             'route' => 'home',
         ],
         [
@@ -168,7 +168,7 @@ return [
             'title' => 'Hostel hot water facility',
             'question' => 'Is hot water facility available?',
             'answer' => 'Yes. Hot water facility is provided for hostel students.',
-            'answer_ta' => 'ஆம். விடுதி மாணவர்களுக்கு சூடான தண்ணீர் வசதி வழங்கப்படுகிறது.',
+            'answer_ta' => 'இருக்கு, ஹாஸ்டல்ல இருக்குறவங்களுக்கு வெந்நீர் வசதி இருக்கு.',
             'route' => 'home',
         ],
         [
@@ -177,7 +177,7 @@ return [
             'title' => 'Hostel bathrooms',
             'question' => 'Are attached bathrooms available?',
             'answer' => 'Attached or common bathrooms are available based on the selected room category.',
-            'answer_ta' => 'தேர்ந்தெடுக்கப்பட்ட அறை வகையைப் பொருத்து இணைந்த அல்லது பொதுவான கழிப்பறைகள் உள்ளன.',
+            'answer_ta' => 'நீங்க எடுக்குற ரூம் வகையைப் பொறுத்து, ரூமோட சேர்ந்த பாத்ரூம் இல்லனா பொதுவான பாத்ரூம் இருக்கும்.',
             'route' => 'home',
         ],
         [
@@ -186,7 +186,7 @@ return [
             'title' => 'Hostel food',
             'question' => 'Is food provided in the hostel?',
             'answer' => 'Yes. Both vegetarian and non-vegetarian food is provided.',
-            'answer_ta' => 'ஆம். சைவ மற்றும் அசைவ உணவு வகைகள் இரண்டும் வழங்கப்படுகின்றன.',
+            'answer_ta' => 'இருக்கு, வெஜ், நான்-வெஜ் ரெண்டு வகை சாப்பாடும் குடுப்பாங்க.',
             'route' => 'home',
         ],
         [
@@ -195,7 +195,7 @@ return [
             'title' => 'Hostel food quality monitoring',
             'question' => 'How is food quality monitored?',
             'answer' => 'Food quality is monitored through hygiene checks, inspections, and student feedback.',
-            'answer_ta' => 'சுகாதார சோதனைகள், ஆய்வுகள் மற்றும் மாணவர் கருத்துக்கள் மூலம் உணவின் தரம் கண்காணிக்கப்படுகிறது.',
+            'answer_ta' => 'ஹெல்த் செக்கப், ஆய்வுகள், மாணவர்கள் சொல்ற கருத்துகள் மூலமா சாப்பாட்டோட தரத்தை கவனிச்சுக்கிறாங்க.',
             'route' => 'home',
         ],
         [
@@ -204,7 +204,7 @@ return [
             'title' => 'Hostel laundry services',
             'question' => 'Are laundry services available?',
             'answer' => 'Yes. Laundry services are available for hostel students.',
-            'answer_ta' => 'ஆம். விடுதி மாணவர்களுக்கு துணி சலவை சேவை வசதி உள்ளது.',
+            'answer_ta' => 'இருக்கு, ஹாஸ்டல் மாணவர்களுக்கு துணி துவைக்கிற வசதி இருக்கு.',
             'route' => 'home',
         ],
         [
@@ -213,7 +213,7 @@ return [
             'title' => 'Hostel housekeeping',
             'question' => 'Is housekeeping provided?',
             'answer' => 'Yes. Regular housekeeping services are provided.',
-            'answer_ta' => 'ஆம். தொடர்ந்து அறை சுத்தம் செய்யும் சேவை வழங்கப்படுகிறது.',
+            'answer_ta' => 'இருக்கு, ரூமை தொடர்ந்து சுத்தம் பண்ணிக் குடுப்பாங்க.',
             'route' => 'home',
         ],
         [
@@ -222,7 +222,7 @@ return [
             'title' => 'Hostel study hours',
             'question' => 'Are there fixed study hours in the hostel?',
             'answer' => 'Yes. Dedicated study hours are maintained to support academics.',
-            'answer_ta' => 'ஆம். கல்வியை ஆதரிக்க பிரத்யேக படிப்பு நேரம் பராமரிக்கப்படுகிறது.',
+            'answer_ta' => 'இருக்கு, படிக்கிறதுக்குன்னே தனி ஸ்டடி டைம் வெச்சிருக்காங்க.',
             'route' => 'home',
         ],
         [
@@ -231,7 +231,7 @@ return [
             'title' => 'Hostel in-time and out-time rules',
             'question' => 'What are the hostel in-time and out-time rules?',
             'answer' => 'Clearly defined in-time and out-time rules are followed for boys and girls.',
-            'answer_ta' => 'ஆண்கள் மற்றும் பெண்களுக்கு தெளிவாக வரையறுக்கப்பட்ட உள்வர/வெளியேறும் நேர விதிமுறைகள் பின்பற்றப்படுகின்றன.',
+            'answer_ta' => 'பசங்களுக்கும் பொண்ணுங்களுக்கும் ஹாஸ்டலுக்குள்ள வர்ற, வெளிய போற நேரம் தெளிவா வரையறுக்கப்பட்டிருக்கு, அத ஃபாலோ பண்ணணும்.',
             'route' => 'home',
         ],
         [
@@ -240,7 +240,7 @@ return [
             'title' => 'Hostel weekend home visits',
             'question' => 'Are students allowed to go home on weekends?',
             'answer' => 'Yes. Weekend home visits and Sunday outings are allowed with parental consent.',
-            'answer_ta' => 'ஆம். பெற்றோரின் சம்மதத்துடன் வார இறுதி வீட்டுப் பயணங்களும் ஞாயிறு வெளியேற்றங்களும் அனுமதிக்கப்படுகின்றன.',
+            'answer_ta' => 'இருக்கு, பெற்றோரோட சம்மதம் இருந்தா வீக்எண்ட்ல ஊருக்கு போகலாம், ஞாயிற்றுக்கிழமை வெளிய போகவும் அனுமதி உண்டு.',
             'route' => 'home',
         ],
         [
@@ -249,7 +249,7 @@ return [
             'title' => 'Parents visiting the hostel',
             'question' => 'Can parents visit the hostel?',
             'answer' => 'Yes. Parents can visit during specified visiting hours.',
-            'answer_ta' => 'ஆம். குறிப்பிட்ட சந்திப்பு நேரங்களில் பெற்றோர் விடுதிக்கு வரலாம்.',
+            'answer_ta' => 'இருக்கு, சொல்லியிருக்குற சந்திப்பு நேரங்கள்ல பெற்றோர் ஹாஸ்டலுக்கு வந்து பார்க்கலாம்.',
             'route' => 'home',
         ],
         [
@@ -258,7 +258,7 @@ return [
             'title' => 'Hostel safety measures',
             'question' => 'What safety measures are available in the hostel?',
             'answer' => 'CCTV surveillance, 24/7 security, controlled entry, and wardens ensure safety.',
-            'answer_ta' => 'சிசிடிவி கண்காணிப்பு, 24/7 பாதுகாப்பு, கட்டுப்படுத்தப்பட்ட நுழைவு மற்றும் வார்டன்கள் பாதுகாப்பை உறுதி செய்கிறார்கள்.',
+            'answer_ta' => 'சிசிடிவி கேமரா, 24 மணி நேர பாதுகாப்பு, கட்டுப்பாடான நுழைவு, வார்டன்கள்னு எல்லாமே இருக்கு, அதனால பாதுகாப்பா இருக்கலாம்.',
             'route' => 'home',
         ],
         [
@@ -267,7 +267,7 @@ return [
             'title' => 'Hostel attendance monitoring',
             'question' => 'Is attendance monitored in the hostel?',
             'answer' => 'Yes. Student attendance is monitored regularly.',
-            'answer_ta' => 'ஆம். மாணவர்களின் வருகை தொடர்ந்து கண்காணிக்கப்படுகிறது.',
+            'answer_ta' => 'இருக்கு, மாணவர்கள் வருகையை எப்பவும் கவனிச்சுக்கிட்டே இருப்பாங்க.',
             'route' => 'home',
         ],
         [
@@ -276,7 +276,7 @@ return [
             'title' => 'Hostel absenteeism notification',
             'question' => 'Will parents be informed about absenteeism?',
             'answer' => 'Yes. Parents are informed immediately in case of absenteeism.',
-            'answer_ta' => 'ஆம். மாணவர் வராமல் இருந்தால் பெற்றோருக்கு உடனடியாக தெரிவிக்கப்படும்.',
+            'answer_ta' => 'இருக்கு, மாணவர் வரலனா உடனே பெற்றோருக்கு தகவல் சொல்லிடுவாங்க.',
             'route' => 'home',
         ],
         [
@@ -285,7 +285,7 @@ return [
             'title' => 'Hostel medical support',
             'question' => 'Is medical support available for hostel students?',
             'answer' => 'Yes. First-aid facilities, hospital tie-ups, and emergency transport are available.',
-            'answer_ta' => 'ஆம். முதலுதவி வசதிகள், மருத்துவமனை இணைப்புகள் மற்றும் அவசர போக்குவரத்து வசதி உள்ளன.',
+            'answer_ta' => 'இருக்கு, முதலுதவி வசதி, மருத்துவமனை தொடர்பு, அவசரத்துக்கு வண்டி வசதி எல்லாம் இருக்கு.',
             'route' => 'home',
         ],
         [
@@ -294,7 +294,7 @@ return [
             'title' => 'Outside food in the hostel',
             'question' => 'Is outside food allowed in the hostel?',
             'answer' => 'Outside food delivery is regulated as per hostel rules.',
-            'answer_ta' => 'விடுதி விதிமுறைகளுக்கு ஏற்ப வெளி உணவு டெலிவரி கட்டுப்படுத்தப்படுகிறது.',
+            'answer_ta' => 'வெளிய இருந்து சாப்பாடு ஆர்டர் பண்றதுக்கு ஹாஸ்டல் விதிமுறைப்படி கட்டுப்பாடு இருக்கு.',
             'route' => 'home',
         ],
         [
@@ -303,7 +303,7 @@ return [
             'title' => 'Choosing hostel roommates',
             'question' => 'Can students choose their roommates?',
             'answer' => 'Roommate preferences are considered subject to availability and policies.',
-            'answer_ta' => 'கிடைக்கும் தன்மை மற்றும் விதிமுறைகளுக்கு உட்பட்டு, அறை தோழர் விருப்பங்கள் கருத்தில் கொள்ளப்படும்.',
+            'answer_ta' => 'இடம் இருக்கிறத பொறுத்தும் விதிமுறைகளுக்கு உட்பட்டும், உங்க ரூம்மேட் விருப்பத்தையும் பார்ப்பாங்க.',
             'route' => 'home',
         ],
         [
@@ -312,7 +312,7 @@ return [
             'title' => 'College transport facilities',
             'question' => 'Does Rathinam provide transport facilities?',
             'answer' => 'Yes. College transport facilities are available across major routes.',
-            'answer_ta' => 'ஆம். முக்கிய பாதைகளில் கல்லூரி போக்குவரத்து வசதி உள்ளது.',
+            'answer_ta' => 'இருக்கு, முக்கியமான வழித்தடங்கள்ல காலேஜ் பஸ் வசதி இருக்கு.',
             'route' => 'bus-registration.create',
         ],
         [
@@ -321,7 +321,7 @@ return [
             'title' => 'Transport route coverage',
             'question' => 'Which areas are covered under transport facilities?',
             'answer' => 'Major towns, residential locations, and student-dense areas are covered.',
-            'answer_ta' => 'முக்கிய நகரங்கள், குடியிருப்புப் பகுதிகள் மற்றும் மாணவர்கள் அதிகம் வசிக்கும் பகுதிகள் உள்ளடக்கப்பட்டுள்ளன.',
+            'answer_ta' => 'முக்கியமான நகரங்கள், குடியிருப்பு பகுதிகள், மாணவர்கள் நிறைய இருக்குற இடங்கள் எல்லாம் கவர் ஆகுது.',
             'route' => 'bus-registration.create',
         ],
         [
@@ -330,7 +330,7 @@ return [
             'title' => 'Morning pickup timings',
             'question' => 'What are the morning pickup timings?',
             'answer' => 'Pickup timings range between 6:45 AM and 8:05 AM depending on the route.',
-            'answer_ta' => 'பாதையைப் பொருத்து, காலை 6:45 முதல் 8:05 மணி வரை மாணவர்களை ஏற்றும் நேரம் இருக்கும்.',
+            'answer_ta' => 'நீங்க வர்ற ரூட்டைப் பொறுத்து, காலை 6:45 முதல் 8:05 மணிக்குள்ள பஸ் உங்கள ஏத்திக்கும்.',
             'route' => 'bus-registration.create',
         ],
         [
@@ -339,7 +339,7 @@ return [
             'title' => 'Bus arrival time at campus',
             'question' => 'What time do buses reach the campus?',
             'answer' => 'All buses reach the campus by 8:45 AM.',
-            'answer_ta' => 'அனைத்து பேருந்துகளும் காலை 8:45 மணிக்குள் வளாகத்தை அடைந்துவிடும்.',
+            'answer_ta' => 'எல்லா பஸ்ஸும் காலை 8:45 மணிக்குள்ள கேம்பஸ் வந்துடும்.',
             'route' => 'bus-registration.create',
         ],
         [
@@ -348,7 +348,7 @@ return [
             'title' => 'Evening drop timings',
             'question' => 'What are the evening drop timings?',
             'answer' => 'Evening drop timings are between 4:45 PM and 5:00 PM.',
-            'answer_ta' => 'மாலை நேரத்தில் மாணவர்களை இறக்கும் நேரம் 4:45 முதல் 5:00 மணி வரை இருக்கும்.',
+            'answer_ta' => 'சாயங்காலம் 4:45 முதல் 5:00 மணிக்குள்ள மாணவர்களை இறக்கி விடுவாங்க.',
             'route' => 'bus-registration.create',
         ],
         [
@@ -357,7 +357,7 @@ return [
             'title' => 'Bus pass for transport users',
             'question' => 'Is a bus pass issued to transport users?',
             'answer' => 'Yes. Students using transport are issued an official bus pass.',
-            'answer_ta' => 'ஆம். போக்குவரத்து பயன்படுத்தும் மாணவர்களுக்கு அதிகாரப்பூர்வ பேருந்து அனுமதி அட்டை வழங்கப்படும்.',
+            'answer_ta' => 'இருக்கு, பஸ் யூஸ் பண்றவங்களுக்கு அதிகாரப்பூர்வ பஸ் பாஸ் குடுப்பாங்க.',
             'route' => 'bus-registration.create',
         ],
         [
@@ -366,12 +366,17 @@ return [
             'title' => 'College bus safety features',
             'question' => 'What safety features are available in college buses?',
             'answer' => 'GPS tracking, CCTV cameras, first-aid kits, fire extinguishers, and trained drivers are provided.',
-            'answer_ta' => 'ஜிபிஎஸ் கண்காணிப்பு, சிசிடிவி கேமராக்கள், முதலுதவி பெட்டிகள், தீயணைப்பான்கள் மற்றும் பயிற்சி பெற்ற ஓட்டுநர்கள் வழங்கப்படுகின்றன.',
+            'answer_ta' => 'ஜிபிஎஸ் டிராக்கிங், சிசிடிவி கேமரா, முதலுதவி பெட்டி, தீயணைப்பான், பயிற்சி பெற்ற டிரைவர்கள்னு எல்லாம் இருக்கு.',
             'route' => 'bus-registration.create',
         ],
     ],
 
     'aliases' => [
+        // Tamil written in English letters (Tanglish)
+        'hostal' => ['hostel'],
+        'hostle' => ['hostel'],
+        'vasathi' => ['facilities'],
+        'bus' => ['bus', 'transport'],
         // English synonyms
         'programs' => ['programs', 'programmes'],
         'programmes' => ['programs', 'programmes'],
