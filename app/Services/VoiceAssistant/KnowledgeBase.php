@@ -32,7 +32,7 @@ class KnowledgeBase
         'rathinam', 'rgu', 'rgi', 'university', 'college', 'institution', 'get', 'need', 'some', 'much', 'many',
         'iruka', 'iruku', 'irukka', 'irukku', 'irukaa', 'irukkaa', 'irukum', 'irukkum', 'ah', 'aa', 'enna', 'yenna',
         'epdi', 'eppadi', 'evlo', 'evalo', 'yella', 'ella', 'nenga', 'neenga', 'ungal', 'unga', 'sollu', 'solunga',
-        'venum', 'venu', 'pakum', 'pakkum', 'full', 'muzhukka', 'muluka', 'pannalam', 'panalam', 'ipo', 'ippo', 'illa', 'ila', 'la', 'ku', 'ah', 'ok',
+        'option', 'options', 'venum', 'venu', 'pakum', 'pakkum', 'full', 'muzhukka', 'muluka', 'pannalam', 'panalam', 'ipo', 'ippo', 'illa', 'ila', 'la', 'ku', 'ah', 'ok',
         'available', 'offer', 'offered', 'offers', 'provide', 'provided', 'currently', 'any', 'does', 'did',
     ];
 

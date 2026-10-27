@@ -143,11 +143,34 @@ class VoiceAssistantControllerTest extends TestCase
         });
     }
 
+    public function test_the_ai_interprets_a_misspelled_tanglish_question_before_searching(): void
+    {
+        $this->configureAi();
+        Http::fake([self::AI_URL => Http::sequence()
+            ->push($this->aiReply('hostel wifi'))
+            ->push($this->aiReply('Iruku, hostel muzhukka wifi iruku, neenga use pannikalam.'))]);
+
+        $this->postJson(self::ENDPOINT, ['message' => 'rathinam la wife option irukka'])
+            ->assertOk()
+            ->assertJson(['mode' => 'ai', 'answer' => 'Iruku, hostel muzhukka wifi iruku, neenga use pannikalam.']);
+
+        Http::assertSentInOrder([
+            fn (Request $request): bool => str_contains($request['messages'][0]['content'], 'search query'),
+            function (Request $request): bool {
+                $messages = $request['messages'];
+
+                return str_contains(end($messages)['content'], 'Wi-Fi connectivity is available');
+            },
+        ]);
+    }
+
     public function test_follow_up_questions_include_the_earlier_turns(): void
     {
         $this->configureAi();
         Http::fake([self::AI_URL => Http::sequence()
+            ->push($this->aiReply('admissions open'))
             ->push($this->aiReply('Admissions for 2026-2027 are open.'))
+            ->push($this->aiReply('contact email'))
             ->push($this->aiReply('You can email admission@rathinam.in.'))]);
 
         $conversationId = $this->postJson(self::ENDPOINT, ['message' => 'Are admissions open?'])->json('conversation_id');
@@ -157,6 +180,8 @@ class VoiceAssistantControllerTest extends TestCase
             ->assertJson(['conversation_id' => $conversationId, 'answer' => 'You can email admission@rathinam.in.']);
 
         Http::assertSentInOrder([
+            fn (Request $request): bool => count($request['messages']) === 2,
+            fn (Request $request): bool => count($request['messages']) === 2,
             fn (Request $request): bool => count($request['messages']) === 2,
             fn (Request $request): bool => count($request['messages']) === 4
                 && $request['messages'][1] === ['role' => 'user', 'content' => 'Are admissions open?']
