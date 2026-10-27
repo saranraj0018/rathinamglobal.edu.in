@@ -223,7 +223,7 @@
 .rva-mic { width: 64px; height: 64px; }
 
 /* Voice call: team stays on screen, timer in the header, mic mute + End Call --- */
-.rva-timer, .rva-call, .rva-call-note, .rva-caption { display: none; }
+.rva-timer, .rva-call, .rva-call-note { display: none; }
 .rva-panel[data-view="call"] .rva-timer {
   display: inline-block; flex: none; padding: 3px 10px; border-radius: 999px;
   background: rgba(168, 85, 247, .16); border: 1px solid rgba(168, 85, 247, .35);
@@ -240,12 +240,6 @@
 .rva-panel[data-view="call"] .rva-member:not([aria-pressed="true"]):hover { opacity: 1; }
 .rva-panel[data-view="call"] .rva-member[aria-pressed="true"]::after { display: none; }
 .rva-panel[data-view="call"][data-state="speaking"] .rva-member[aria-pressed="true"] { animation: rva-glow 1.1s ease-in-out infinite; }
-/* The latest answer as a caption, for when audio is off or unavailable. */
-.rva-panel[data-view="call"] .rva-caption:not(:empty) {
-  display: block; max-height: 96px; overflow-y: auto; margin: 4px 0 8px; padding: 8px 12px; border-radius: 12px;
-  background: var(--rva-surface); border: 1px solid var(--rva-border); font-size: 13px; line-height: 1.45; color: #e5e5ef;
-}
-.rva-caption__link { color: #c4b5fd; font-weight: 600; }
 .rva-panel[data-view="call"] .rva-call-note:not(:empty) { display: block; margin: 0 0 6px; font-size: 13px; text-align: center; color: #fecaca; }
 .rva-panel[data-view="call"] .rva-call { display: flex; align-items: center; gap: 12px; padding: 12px 14px 14px; border-top: 1px solid var(--rva-border); background: rgba(11, 11, 20, .6); }
 .rva-call__mic {

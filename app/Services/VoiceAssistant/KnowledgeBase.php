@@ -145,7 +145,7 @@ class KnowledgeBase
         }
 
         // Curated entries first: they win ties and keep their place when questions repeat.
-        $entries = [...$this->factEntries(), ...$this->faqEntries(), ...$this->schoolEntries(), ...$this->degreeEntries(), ...$this->site->entries()];
+               $entries = [...$this->factEntries(), ...$this->faqEntries(), ...$this->schoolEntries(), ...$this->degreeEntries(), ...$this->site->entries()];
 
         // The FAQ repeats a few questions across categories; keep the first.
         $unique = [];
@@ -252,8 +252,8 @@ class KnowledgeBase
 
         return $entries;
     }
-
-    /**
+    
+     /**
      * One entry per degree ("B.Sc", "MBA", ...) listing its programmes across
      * every school, so "list the B.Sc programmes" has a single complete answer.
      *
@@ -332,8 +332,8 @@ class KnowledgeBase
     {
         $aliases = $this->content->get('voice-assistant')['aliases'];
         $terms = [];
-
-        // Speech recognition may spell a degree letter by letter ("பி எஸ் சி"), which words() splits apart.
+        
+             // Speech recognition may spell a degree letter by letter ("பி எஸ் சி"), which words() splits apart.
         $spaced = ' '.trim((string) preg_replace('/[\s.]+/u', ' ', mb_strtolower($query))).' ';
 
         foreach ($this->content->get('voice-assistant')['phrases'] as $phrase => $replacements) {

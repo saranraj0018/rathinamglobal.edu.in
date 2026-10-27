@@ -834,6 +834,7 @@
     return gender === "female" ? female : !female && MALE_VOICE.test(voice.name);
   }
 
+
   function isNatural(voice) {
     return voice.localService === false || NATURAL_VOICE.test(voice.name);
   }

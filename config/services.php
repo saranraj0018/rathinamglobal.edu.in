@@ -45,12 +45,11 @@ return [
 
     /*
     | Google Cloud Text-to-Speech: reads the voice assistant's answers aloud in
-    | browsers that have no natural-sounding voice for the language (most
-    | desktops lack Tamil). Chirp 3 HD voices are Google's most human-sounding.
+    | browsers that have no voice for the language (most desktops lack Tamil).
     | Without a key, answers are spoken only where the browser has a voice.
     | Voice names: https://cloud.google.com/text-to-speech/docs/voices
     */
-    'google_tts' => [
+     'google_tts' => [
         'key' => env('GOOGLE_TTS_KEY'),
         'timeout' => (int) env('GOOGLE_TTS_TIMEOUT', 15),
         'voices' => [

@@ -14,7 +14,6 @@
  * schools  — display names for resources/data/schools/{slug}.php
  * facts    — extra entries: id, category, title, question, answer, route (named route) or url
  * aliases  — search synonyms: a visitor word (or Tamil word stem) => English terms in this content
- * phrases  — degrees spelled letter by letter ("பி எஸ் சி", dots ignored) => English terms
  * personas — the "AI team" a visitor picks from: name, role, voice (female|male), image (under public/),
  *            focus (steers the AI's emphasis, never its rules), greeting and suggestions per language.
  *            To use real photos, replace the image files (square, at least 240px) and keep the keys.
@@ -158,7 +157,7 @@ return [
         'கணினி' => ['computer'],
         'செயற்கை' => ['artificial', 'intelligence'],
         'பேருந்து' => ['bus'],
-        'பட்டியல்' => ['list'],
+         'பட்டியல்' => ['list'],
 
         // English words as Tamil speech recognition writes them ("பிஎஸ்சி ப்ரோக்ராம்ஸ் லிஸ்ட்")
         'பிஎஸ்சி' => ['bsc'],
@@ -190,8 +189,8 @@ return [
         'இஞ்சினியரிங' => ['engineering'],
         'கம்ப்யூட்டர' => ['computer'],
     ],
-
-    'phrases' => [
+    
+        'phrases' => [
         'பி எஸ் சி' => ['bsc'],
         'எம் எஸ் சி' => ['msc'],
         'பி இ' => ['be'],
@@ -205,6 +204,7 @@ return [
         'பி ஏ' => ['ba'],
         'எம் ஏ' => ['ma'],
     ],
+
 
     'personas' => [
         'admissions' => [
