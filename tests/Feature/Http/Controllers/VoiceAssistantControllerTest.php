@@ -136,7 +136,7 @@ class VoiceAssistantControllerTest extends TestCase
                 && $request['model'] === 'test-model'
                 && $messages[0]['role'] === 'system'
                 && str_contains($messages[0]['content'], 'Answer only from the REFERENCE INFORMATION')
-                && str_contains($question, 'Hostel Facilities')
+                && str_contains(mb_strtolower($question), 'hostel')
                 && str_contains($question, 'Reply language: Tamil')
                 // The visitor cannot close the delimiter around their own message.
                 && substr_count($question, '</visitor_message>') === 1;

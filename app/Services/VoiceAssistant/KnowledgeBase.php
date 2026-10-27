@@ -15,7 +15,7 @@ use Illuminate\Support\Str;
  * larger document set, replace search() with an embedding index; callers
  * only depend on the returned entry shape.
  *
- * @phpstan-type Entry array{id: string, category: string, title: string, question: string, answer: string, url: string}
+ * @phpstan-type Entry array{id: string, category: string, title: string, question: string, answer: string, answer_ta?: string, url: string}
  * @phpstan-type Match array{entry: Entry, score: int, coverage: float}
  */
 class KnowledgeBase
@@ -145,7 +145,7 @@ class KnowledgeBase
         }
 
         // Curated entries first: they win ties and keep their place when questions repeat.
-               $entries = [...$this->factEntries(), ...$this->faqEntries(), ...$this->schoolEntries(), ...$this->degreeEntries(), ...$this->site->entries()];
+        $entries = [...$this->factEntries(), ...$this->faqEntries(), ...$this->schoolEntries(), ...$this->degreeEntries(), ...$this->site->entries()];
 
         // The FAQ repeats a few questions across categories; keep the first.
         $unique = [];
@@ -168,14 +168,15 @@ class KnowledgeBase
      */
     private function factEntries(): array
     {
-        return array_map(fn (array $fact): array => [
+        return array_map(fn (array $fact): array => array_filter([
             'id' => 'fact-'.$fact['id'],
             'category' => $fact['category'],
             'title' => $fact['title'],
             'question' => $fact['question'],
             'answer' => $fact['answer'],
+            'answer_ta' => $fact['answer_ta'] ?? null,
             'url' => isset($fact['route']) ? route($fact['route']) : (string) ($fact['url'] ?? route('home')),
-        ], $this->content->get('voice-assistant')['facts']);
+        ], fn (mixed $value): bool => $value !== null), $this->content->get('voice-assistant')['facts']);
     }
 
     /**
@@ -252,8 +253,8 @@ class KnowledgeBase
 
         return $entries;
     }
-    
-     /**
+
+    /**
      * One entry per degree ("B.Sc", "MBA", ...) listing its programmes across
      * every school, so "list the B.Sc programmes" has a single complete answer.
      *
@@ -332,8 +333,8 @@ class KnowledgeBase
     {
         $aliases = $this->content->get('voice-assistant')['aliases'];
         $terms = [];
-        
-             // Speech recognition may spell a degree letter by letter ("பி எஸ் சி"), which words() splits apart.
+
+        // Speech recognition may spell a degree letter by letter ("பி எஸ் சி"), which words() splits apart.
         $spaced = ' '.trim((string) preg_replace('/[\s.]+/u', ' ', mb_strtolower($query))).' ';
 
         foreach ($this->content->get('voice-assistant')['phrases'] as $phrase => $replacements) {

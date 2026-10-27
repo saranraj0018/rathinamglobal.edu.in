@@ -162,12 +162,19 @@ class VoiceAssistant
             return [$this->knowledge->message('unknown', $language), 'knowledge-base', [], null];
         }
 
-        $prefix = $this->knowledge->message('english_only', $language);
-        $text = str_starts_with($best['entry']['id'], 'page-')
-            ? Str::limit($best['entry']['answer'], self::DIRECT_PAGE_ANSWER_LENGTH, '…', preserveWords: true)
-            : $best['entry']['answer'];
+        $entry = $best['entry'];
+        $tamilAnswer = $entry['answer_ta'] ?? null;
 
-        return [trim($prefix.' '.$text), 'knowledge-base', $this->sources([$best['entry']]), null];
+        if ($language === 'ta' && $tamilAnswer !== null) {
+            return [trim($tamilAnswer), 'knowledge-base', $this->sources([$entry]), null];
+        }
+
+        $prefix = $this->knowledge->message('english_only', $language);
+        $text = str_starts_with($entry['id'], 'page-')
+            ? Str::limit($entry['answer'], self::DIRECT_PAGE_ANSWER_LENGTH, '…', preserveWords: true)
+            : $entry['answer'];
+
+        return [trim($prefix.' '.$text), 'knowledge-base', $this->sources([$entry]), null];
     }
 
     /**
