@@ -7,6 +7,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -585,7 +586,7 @@ class VoiceAssistantControllerTest extends TestCase
             ->push($this->aiReply($reply))
             ->push($this->aiReply('I do not have that information. Please contact the admissions team.'))]);
 
-        $this->postJson(self::ENDPOINT, ['message' => 'bus registration'])
+        $this->postJson(self::ENDPOINT, ['message' => 'What is the weather on Mars today?'])
             ->assertOk()
             ->assertJsonPath('sources', []);
     }
@@ -621,6 +622,255 @@ class VoiceAssistantControllerTest extends TestCase
             ->assertOk()
             ->assertHeader('Cache-Control', 'no-store, private')
             ->assertJsonStructure(['success', 'answer', 'conversation_id', 'language', 'mode', 'sources' => [['title', 'url']], 'redirect']);
+    }
+
+    /**
+     * Asserts which knowledge entry won, from the development trace the assistant logs.
+     */
+    private function assertWinner(?string $id): void
+    {
+        Log::shouldHaveReceived('debug')->withArgs(fn (string $message, array $context = []): bool => $message === '[voice-assistant] trace' && $context['winner'] === $id)->once();
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function hostelWifiQuestions(): array
+    {
+        return [
+            'Tanglish' => ['hostel la wifi irukka'],
+            'Tanglish with irukuma' => ['hostel wifi irukuma'],
+            'internet instead of wifi' => ['hostel la internet irukka'],
+            'English words, Tanglish ending' => ['hostel has wifi facility ah'],
+            'misspelt' => ['hostal la wife irukka'],
+            'English' => ['Is Wi-Fi available in the hostel?'],
+            'shouted with punctuation' => ['  HOSTEL   WIFI!!!  irukka??  '],
+        ];
+    }
+
+    #[DataProvider('hostelWifiQuestions')]
+    public function test_hostel_wifi_questions_in_any_wording_select_the_wifi_fact_without_an_ai(string $message): void
+    {
+        Log::spy();
+
+        $this->postJson(self::ENDPOINT, ['message' => $message])
+            ->assertOk()
+            ->assertJsonPath('mode', 'knowledge-base')
+            ->assertJsonPath('answer', 'Yes. Wi-Fi connectivity is available throughout the hostel premises.');
+
+        $this->assertWinner('fact-hostel-wifi');
+        Http::assertNothingSent();
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function factQuestions(): array
+    {
+        return [
+            'bus eppo varum' => ['bus eppo varum', 'fact-transport-arrival'],
+            'college bus enga varum' => ['college bus enga varum', 'fact-transport-coverage'],
+            'bus timing' => ['bus timing', 'fact-transport-pickup'],
+            'hostel food epdi irukkum' => ['hostel food epdi irukkum', 'fact-hostel-food'],
+            'boys girls separate' => ['hostel la boys girls separate ah', 'fact-hostel-separate-boys-girls'],
+            'campus address' => ['where is the campus located', 'fact-address'],
+            'address in Tanglish' => ['campus address enna', 'fact-address'],
+            'hot water' => ['hostel la hot water irukka', 'fact-hostel-hot-water'],
+        ];
+    }
+
+    #[DataProvider('factQuestions')]
+    public function test_each_question_selects_its_own_fact_and_not_a_neighbouring_topic(string $message, string $expectedId): void
+    {
+        Log::spy();
+
+        $this->postJson(self::ENDPOINT, ['message' => $message])->assertOk()->assertJsonPath('mode', 'knowledge-base');
+
+        $this->assertWinner($expectedId);
+    }
+
+    public function test_a_facility_question_is_not_answered_with_the_address_and_a_bus_question_not_with_the_hostel(): void
+    {
+        $hostel = $this->postJson(self::ENDPOINT, ['message' => 'hostel wifi where'])->assertOk()->json('answer');
+        $bus = $this->postJson(self::ENDPOINT, ['message' => 'bus timing'])->assertOk()->json('answer');
+
+        $this->assertStringContainsString('Wi-Fi', $hostel);
+        $this->assertStringNotContainsString('Eachanari', $hostel);
+        $this->assertStringContainsString('AM', $bus);
+        $this->assertStringNotContainsString('hostel', mb_strtolower($bus));
+    }
+
+    public function test_a_tamil_script_question_selects_the_fact_and_is_answered_in_its_tamil_text(): void
+    {
+        Log::spy();
+
+        $this->postJson(self::ENDPOINT, ['message' => 'ஹாஸ்டல்ல வைஃபை இருக்கா?', 'language' => 'ta'])
+            ->assertOk()
+            ->assertJsonPath('language', 'ta')
+            ->assertJsonPath('answer', 'இருக்கு, ஹாஸ்டல் முழுக்க வைஃபை இருக்கு, நீங்க தாராளமா யூஸ் பண்ணிக்கலாம்.');
+
+        $this->assertWinner('fact-hostel-wifi');
+    }
+
+    public function test_an_ai_that_picks_an_unrelated_entry_cannot_override_a_strong_keyword_match(): void
+    {
+        $this->configureAi();
+        Log::spy();
+        Http::fake([self::AI_URL => Http::sequence()
+            ->push($this->aiPick('fact-transport-arrival'))
+            ->push($this->aiReply('Yes, Wi-Fi is available throughout the hostel.'))]);
+
+        $this->postJson(self::ENDPOINT, ['message' => 'hostel wifi irukuma'])
+            ->assertOk()
+            ->assertJsonPath('mode', 'ai')
+            ->assertJsonPath('sources.0.title', 'Hostel Wi-Fi');
+
+        $this->assertWinner('fact-hostel-wifi');
+        Http::assertSent(fn (Request $request): bool => ! str_contains($request['messages'][array_key_last($request['messages'])]['content'], 'reach the campus by 8:45 AM'));
+    }
+
+    public function test_the_ai_rescues_a_question_the_keywords_cannot_read(): void
+    {
+        $this->configureAi();
+        Log::spy();
+        Http::fake([self::AI_URL => Http::sequence()
+            ->push($this->aiPick('fact-hostel-wifi'))
+            ->push($this->aiReply('Iruku, hostel muzhukka wifi iruku.'))]);
+
+        $this->postJson(self::ENDPOINT, ['message' => 'hostel la vaifai irukka'])
+            ->assertOk()
+            ->assertJsonPath('mode', 'ai')
+            ->assertJsonPath('answer', 'Iruku, hostel muzhukka wifi iruku.');
+
+        $this->assertWinner('fact-hostel-wifi');
+    }
+
+    public function test_the_ai_saying_none_cannot_hide_a_strong_keyword_match(): void
+    {
+        $this->configureAi();
+        Log::spy();
+        Http::fake([self::AI_URL => Http::sequence()
+            ->push($this->aiReply('NONE'))
+            ->push($this->aiReply('Pickup is between 6:45 AM and 8:05 AM.'))]);
+
+        $this->postJson(self::ENDPOINT, ['message' => 'bus pickup timings'])->assertOk()->assertJsonPath('mode', 'ai');
+
+        $this->assertWinner('fact-transport-pickup');
+    }
+
+    public function test_the_answer_step_receives_only_the_selected_entries(): void
+    {
+        $this->configureAi();
+        Http::fake([self::AI_URL => Http::sequence()
+            ->push($this->aiPick('fact-hostel-wifi'))
+            ->push($this->aiReply('Yes, Wi-Fi is available throughout the hostel.'))]);
+
+        $this->postJson(self::ENDPOINT, ['message' => 'hostel wifi irukuma'])->assertOk();
+
+        Http::assertSent(function (Request $request): bool {
+            $reference = $request['messages'][array_key_last($request['messages'])]['content'];
+
+            return str_contains($reference, 'Wi-Fi connectivity is available throughout the hostel premises.')
+                && ! str_contains($reference, 'Rathinam Techzone Campus')
+                && ! str_contains($reference, '8:45 AM')
+                && substr_count($reference, "\nQ: ") <= 3;
+        });
+    }
+
+    /**
+     * @return array<string, array{0: ?int}>
+     */
+    public static function aiFailures(): array
+    {
+        return ['timeout' => [null], 'server error' => [503], 'empty reply' => [200]];
+    }
+
+    #[DataProvider('aiFailures')]
+    public function test_when_the_ai_fails_the_keyword_search_selects_the_same_fact(?int $status): void
+    {
+        $this->configureAi();
+        Log::spy();
+        Http::fake([self::AI_URL => match ($status) {
+            null => fn () => throw new ConnectionException('cURL error 28: Operation timed out'),
+            200 => Http::response(['choices' => [['message' => ['content' => ''], 'finish_reason' => 'length']]]),
+            default => Http::response(['error' => ['message' => 'overloaded']], $status),
+        }]);
+
+        $this->postJson(self::ENDPOINT, ['message' => 'hostel la wifi irukka'])
+            ->assertOk()
+            ->assertJsonPath('mode', 'knowledge-base')
+            ->assertJsonPath('answer', 'Yes. Wi-Fi connectivity is available throughout the hostel premises.');
+
+        $this->assertWinner('fact-hostel-wifi');
+        Log::shouldHaveReceived('warning')->atLeast()->once();
+    }
+
+    public function test_a_question_with_no_relevant_entry_selects_nothing_and_gives_the_verified_contact(): void
+    {
+        Log::spy();
+
+        $this->postJson(self::ENDPOINT, ['message' => 'What is the weather on Mars today?'])
+            ->assertOk()
+            ->assertJsonPath('sources', [])
+            ->assertJsonPath('answer', (require resource_path('data/voice-assistant.php'))['messages']['en']['unknown']);
+
+        $this->assertWinner(null);
+    }
+
+    public function test_a_vague_question_that_fits_many_courses_asks_which_one(): void
+    {
+        $this->postJson(self::ENDPOINT, ['message' => 'admission eligibility'])
+            ->assertOk()
+            ->assertJsonPath('sources', [])
+            ->assertJsonPath('answer', (require resource_path('data/voice-assistant.php'))['messages']['en']['clarify']);
+    }
+
+    public function test_the_trace_shows_how_the_question_was_understood_without_personal_details(): void
+    {
+        Log::spy();
+
+        $this->postJson(self::ENDPOINT, ['message' => 'my email is student@example.com, hostel la wifi irukka'])->assertOk();
+
+        Log::shouldHaveReceived('debug')->withArgs(function (string $message, array $context = []): bool {
+            return $message === '[voice-assistant] trace'
+                && ! str_contains($context['question'], 'student@example.com')
+                && str_contains($context['question'], '[email]')
+                && $context['normalised'] === 'email hostel wifi'
+                && $context['search'] === 'keywords (no AI)'
+                && ! str_contains($context['normalised'], 'student')
+                && count($context['candidates']) <= 5;
+        })->once();
+    }
+
+    public function test_the_trace_explains_the_winner_and_lists_the_candidates_with_scores(): void
+    {
+        Log::spy();
+
+        $this->postJson(self::ENDPOINT, ['message' => 'hostel la wifi irukka'])->assertOk();
+
+        Log::shouldHaveReceived('debug')->withArgs(function (string $message, array $context = []): bool {
+            return $message === '[voice-assistant] trace'
+                && $context['question'] === 'hostel la wifi irukka'
+                && $context['normalised'] === 'hostel wifi'
+                && $context['winner'] === 'fact-hostel-wifi'
+                && $context['why'] === 'strongest keyword match'
+                && $context['mode'] === 'knowledge-base'
+                && $context['candidates'][0]['id'] === 'fact-hostel-wifi'
+                && $context['candidates'][0]['score'] > 0
+                && $context['candidates'][0]['ai_pick'] === false;
+        })->once();
+    }
+
+    public function test_nothing_is_traced_when_debugging_is_off_and_the_visitor_never_sees_the_trace(): void
+    {
+        Log::spy();
+        config(['rgu.voice_assistant.debug' => false]);
+
+        $response = $this->postJson(self::ENDPOINT, ['message' => 'hostel la wifi irukka'])->assertOk();
+
+        Log::shouldNotHaveReceived('debug');
+        $this->assertArrayNotHasKey('trace', $response->json());
+        $this->assertStringNotContainsString('candidates', $response->getContent());
     }
 
     public function test_the_endpoint_does_not_answer_get_requests(): void

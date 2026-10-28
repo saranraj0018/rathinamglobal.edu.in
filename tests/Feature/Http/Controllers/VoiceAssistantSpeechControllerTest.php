@@ -76,6 +76,24 @@ class VoiceAssistantSpeechControllerTest extends TestCase
         Http::assertSentCount(3);
     }
 
+    public function test_a_tts_failure_leaves_the_text_answer_intact_and_a_retry_speaks_the_same_text(): void
+    {
+        Http::fake([self::TTS_URL => Http::sequence()
+            ->push([], 500)
+            ->push(['audioContent' => base64_encode('MP3-AUDIO')])]);
+
+        $reply = $this->postJson('/api/voice-assistant/chat', ['message' => 'hostel la wifi irukka', 'language' => 'en'])->assertOk();
+        $answer = $reply->json('answer');
+        $this->assertSame('Yes. Wi-Fi connectivity is available throughout the hostel premises.', $answer);
+
+        $payload = ['text' => $answer, 'language' => 'en', 'conversation_id' => $reply->json('conversation_id')];
+
+        $this->postJson(self::ENDPOINT, $payload)->assertStatus(503)->assertJson(['success' => false]);
+        $this->postJson(self::ENDPOINT, $payload)->assertOk()->assertHeader('Content-Type', 'audio/mpeg');
+
+        Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'texttospeech') && $request['input']['text'] === $answer);
+    }
+
     public function test_audio_is_cached_so_a_repeated_reply_is_synthesised_once(): void
     {
         $this->fakeSpeech();

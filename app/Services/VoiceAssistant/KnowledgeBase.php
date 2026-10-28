@@ -22,6 +22,8 @@ class KnowledgeBase
 {
     private const QUESTION_WEIGHT = 3;
 
+    private const ALSO_ASKED_WEIGHT = 2;
+
     private const ANSWER_WEIGHT = 1;
 
     /**
@@ -35,7 +37,7 @@ class KnowledgeBase
     private ?array $entries = null;
 
     /**
-     * @var array<int, array{question: array<int, string>, answer: array<int, string>}>
+     * @var array<int, array{question: array<int, string>, also: array<int, string>, answer: array<int, string>}>
      */
     private array $index = [];
 
@@ -49,16 +51,19 @@ class KnowledgeBase
     /**
      * Best-matching entries for a question, highest score first.
      *
-     * No word lists are involved: each word is weighted by how rare it is in the
-     * content (inverse document frequency), so filler such as "the" or "is" counts
-     * for almost nothing, and a word found nowhere (an unknown spelling) is ignored.
+     * The question is first normalised (queryTerms: filler dropped, spelling variants and
+     * aliases mapped), then each remaining word is weighted by how rare it is in the content
+     * (inverse document frequency), so generic words count for little and a topic word for a
+     * lot; a word found nowhere (an unknown spelling) is ignored. A word in an entry's
+     * question outweighs one in its alternative wordings, which outweighs one in its answer.
      * Scores are in tenths of a point so they stay integers.
      *
      * @return array<int, Match>
      */
     public function search(string $query, int $limit = 8): array
     {
-        $terms = array_values(array_filter($this->words($query), fn (string $word): bool => mb_strlen($word) > 1));
+        $queryTerms = $this->queryTerms($query);
+        $terms = array_map('strval', array_keys($queryTerms));
         $entries = $this->entries();
         $weights = [];
         $frequency = array_fill_keys($terms, 0);
@@ -67,6 +72,7 @@ class KnowledgeBase
             foreach ($terms as $term) {
                 $weights[$position][$term] = match (true) {
                     $this->containsTerm($this->index[$position]['question'], $term) => self::QUESTION_WEIGHT,
+                    $this->containsTerm($this->index[$position]['also'], $term) => self::ALSO_ASKED_WEIGHT,
                     $this->containsTerm($this->index[$position]['answer'], $term) => self::ANSWER_WEIGHT,
                     default => 0,
                 };
@@ -75,16 +81,22 @@ class KnowledgeBase
         }
 
         $rarity = [];
+        $unmatchedRarity = 0.0;
 
         foreach ($frequency as $term => $count) {
             if ($count > 0) {
                 $rarity[$term] = log(count($entries) / $count);
+            } elseif ($queryTerms[$term] && preg_match('/^\p{Tamil}/u', (string) $term) !== 1) {
+                // A Latin-script word the visitor wrote that is found nowhere (an unknown topic or spelling)
+                // counts against the match. A Tamil word cannot be matched against English content, and a
+                // word an alias added is only a hint, so neither does.
+                $unmatchedRarity += log(count($entries));
             }
         }
 
-        $totalRarity = array_sum($rarity);
+        $totalRarity = array_sum($rarity) + $unmatchedRarity;
 
-        if ($totalRarity <= 0) {
+        if ($rarity === [] || $totalRarity <= 0) {
             return [];
         }
 
@@ -203,6 +215,7 @@ class KnowledgeBase
         $this->entries = array_values($unique);
         $this->index = array_map(fn (array $entry): array => [
             'question' => $this->words($entry['question']),
+            'also' => $this->words(implode(' ', $entry['also_asked'] ?? [])),
             'answer' => $this->words($entry['title'].' '.$entry['answer'].' '.($entry['answer_ta'] ?? '').' '.$entry['category'].' '.$this->routeWords($entry['route'] ?? null)),
         ], $this->entries);
 
@@ -383,6 +396,60 @@ class KnowledgeBase
         return $this->programmes[$slug] = array_keys($programmes);
     }
 
+    /**
+     * The question as the search sees it, for debugging.
+     */
+    public function normalise(string $query): string
+    {
+        return implode(' ', array_keys($this->queryTerms($query)));
+    }
+
+    /**
+     * Search terms for a question: filler words ('stopwords') dropped, synonyms and Tamil
+     * keywords mapped onto the English vocabulary of the content ('aliases', 'phrases').
+     * An intent word such as "where" (-> address) only counts when no topic word is left,
+     * so "hostel wifi, where?" is about the hostel, not the address.
+     *
+     * @return array<string, bool> term => whether the visitor wrote it (false when it came from an alias or phrase)
+     */
+    private function queryTerms(string $query): array
+    {
+        $data = $this->content->get('voice-assistant');
+        $stopwords = array_flip($data['stopwords']);
+        $terms = [];
+        $intentTerms = [];
+
+        // Speech recognition may spell a degree letter by letter ("பி எஸ் சி"), which words() splits apart.
+        $spaced = ' '.trim((string) preg_replace('/[\s.]+/u', ' ', $this->fold($query))).' ';
+
+        foreach ($data['phrases'] as $phrase => $replacements) {
+            if (str_contains($spaced, ' '.$phrase.' ')) {
+                $terms = [...$terms, ...array_fill_keys($replacements, false)];
+            }
+        }
+
+        foreach ($this->words($query) as $word) {
+            $mapped = null;
+
+            foreach ($data['aliases'] as $alias => $replacements) {
+                if ($word === (string) $alias || (preg_match('/^\p{Tamil}/u', $word) === 1 && str_starts_with($word, (string) $alias))) {
+                    $mapped = $replacements;
+                    break;
+                }
+            }
+
+            if ($mapped !== null && isset($stopwords[$word])) {
+                $intentTerms = [...$intentTerms, ...array_fill_keys($mapped, false)];
+            } elseif ($mapped !== null) {
+                $terms = [...$terms, ...array_fill_keys($mapped, false)];
+            } elseif (! isset($stopwords[$word]) && mb_strlen($word) > 1) {
+                $terms[$word] = true;
+            }
+        }
+
+        return $terms !== [] ? $terms : $intentTerms;
+    }
+
     private function matchesTamil(string $word, string $term): bool
     {
         if (preg_match('/^\p{Tamil}/u', $word) !== 1 || preg_match('/^\p{Tamil}/u', $term) !== 1) {
@@ -391,7 +458,7 @@ class KnowledgeBase
 
         [$shorter, $longer] = mb_strlen($word) < mb_strlen($term) ? [$word, $term] : [$term, $word];
 
-        return mb_strlen($shorter) >= 3 && str_starts_with($longer, $shorter);
+        return mb_strlen($shorter) >= 4 && str_starts_with($longer, $shorter);
     }
 
     /**
@@ -427,10 +494,18 @@ class KnowledgeBase
      */
     private function words(string $text): array
     {
-        $words = preg_split('/[^\p{L}\p{M}\p{N}.]+/u', mb_strtolower($text), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $words = preg_split('/[^\p{L}\p{M}\p{N}.]+/u', $this->fold($text), -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
         // Dots are dropped so "B.Sc", "BSc" and "bsc" are the same word.
         return array_values(array_unique(array_filter(array_map(fn (string $word): string => str_replace('.', '', $word), $words))));
+    }
+
+    /**
+     * Lowercase, with the spelling variants of 'variants' folded ("Wi-Fi" -> "wifi").
+     */
+    private function fold(string $text): string
+    {
+        return strtr(mb_strtolower($text), $this->content->get('voice-assistant')['variants']);
     }
 
     private function plain(string $html): string
