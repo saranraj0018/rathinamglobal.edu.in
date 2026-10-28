@@ -462,6 +462,34 @@ class VoiceAssistantControllerTest extends TestCase
             ->assertJsonPath('sources.0.url', route('bus-registration.create'));
     }
 
+    public function test_the_ai_sees_the_other_ways_a_question_is_asked_and_the_answer_stays_verbatim(): void
+    {
+        $this->configureAi();
+        Http::fake([self::AI_URL => Http::sequence()
+            ->push($this->aiPick('fact-hostel-wifi'))
+            ->whenEmpty(Http::response([], 500))]);
+
+        $this->postJson(self::ENDPOINT, ['message' => 'hostel la wifi irukka'])
+            ->assertOk()
+            ->assertJsonPath('mode', 'knowledge-base')
+            ->assertJsonPath('answer', 'Yes. Wi-Fi connectivity is available throughout the hostel premises.');
+
+        Http::assertSent(fn (Request $request): bool => str_contains($request['messages'][0]['content'], 'hostel la wifi irukka')
+            && str_contains($request['messages'][0]['content'], 'ஹாஸ்டல்ல வைஃபை இருக்கா?'));
+    }
+
+    public function test_every_hostel_and_transport_fact_has_other_wordings_in_three_forms(): void
+    {
+        $facts = array_filter((require resource_path('data/voice-assistant.php'))['facts'], fn (array $fact): bool => in_array($fact['category'], ['Hostel', 'Transport'], true));
+
+        $this->assertCount(30, $facts);
+
+        foreach ($facts as $fact) {
+            $this->assertCount(3, $fact['also_asked'] ?? [], "Fact {$fact['id']} needs English, Tanglish and Tamil wordings");
+            $this->assertNotEmpty($fact['answer_ta'], "Fact {$fact['id']} needs a Tamil answer");
+        }
+    }
+
     public function test_the_ai_is_shown_the_whole_knowledge_list_and_the_question_as_data(): void
     {
         $this->configureAi();

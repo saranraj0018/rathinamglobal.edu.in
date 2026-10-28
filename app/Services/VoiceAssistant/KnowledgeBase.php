@@ -15,7 +15,7 @@ use Illuminate\Support\Str;
  * one, search() ranks them by word overlap weighted by rarity. Callers only
  * depend on the returned entry shape.
  *
- * @phpstan-type Entry array{id: string, category: string, title: string, question: string, answer: string, answer_ta?: string, route?: string, url: string}
+ * @phpstan-type Entry array{id: string, category: string, title: string, question: string, answer: string, answer_ta?: string, also_asked?: array<int, string>, route?: string, url: string}
  * @phpstan-type Match array{entry: Entry, score: int, coverage: float}
  */
 class KnowledgeBase
@@ -121,7 +121,8 @@ class KnowledgeBase
 
         foreach ($this->entries() as $position => $entry) {
             $question = $entry['question'] === $entry['title'] ? '' : ' — '.Str::limit($entry['question'], 110, '…');
-            $lines[] = ($position + 1).'. '.Str::limit($entry['title'], 90, '…').$question;
+            $alternatives = isset($entry['also_asked']) ? ' (also asked: '.implode(' | ', $entry['also_asked']).')' : '';
+            $lines[] = ($position + 1).'. '.Str::limit($entry['title'], 90, '…').$question.$alternatives;
         }
 
         return $lines;
@@ -220,6 +221,7 @@ class KnowledgeBase
             'question' => $fact['question'],
             'answer' => $fact['answer'],
             'answer_ta' => $fact['answer_ta'] ?? null,
+            'also_asked' => $fact['also_asked'] ?? null,
             'route' => $fact['route'] ?? null,
             'url' => isset($fact['route']) ? route($fact['route']) : (string) ($fact['url'] ?? route('home')),
         ], fn (mixed $value): bool => $value !== null), $this->content->get('voice-assistant')['facts']);
