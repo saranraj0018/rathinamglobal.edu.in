@@ -84,6 +84,7 @@ class SiteContent
             $data = isset($data['en']) && is_array($data['en']) ? $data['en'] : $data;
             $page = $this->pageTitle($name, $data);
             $url = $this->pageUrl($name);
+            $route = $this->pageRoute($name)[0];
 
             foreach ($data as $section => $value) {
                 if (in_array((string) $section, self::SKIPPED_KEYS, true)) {
@@ -102,6 +103,7 @@ class SiteContent
                         'title' => $title.(count($parts) > 1 ? ' (part '.($number + 1).')' : ''),
                         'question' => $title,
                         'answer' => $text,
+                        'route' => $route,
                         'url' => $url,
                     ];
                 }
@@ -160,9 +162,19 @@ class SiteContent
 
     private function pageUrl(string $name): string
     {
+        [$route, $parameters] = $this->pageRoute($name);
+
+        return Route::has($route) ? route($route, $parameters) : route('home');
+    }
+
+    /**
+     * @return array{0: string, 1: array<int, string>}
+     */
+    private function pageRoute(string $name): array
+    {
         $segments = explode('/', $name);
 
-        [$route, $parameters] = match (true) {
+        return match (true) {
             isset(self::PAGE_ROUTES[$name]) => [self::PAGE_ROUTES[$name], []],
             $segments[0] === 'programmes' && count($segments) === 3 => ['programmes.show', [$segments[1], $segments[2]]],
             $segments[0] === 'schools' => ['schools.show', [$segments[1]]],
@@ -170,8 +182,6 @@ class SiteContent
             $segments[0] === 'research' => ['research.'.$segments[1], []],
             default => [$name, []],
         };
-
-        return Route::has($route) ? route($route, $parameters) : route('home');
     }
 
     private function sectionHeading(int|string $section, mixed $value): string

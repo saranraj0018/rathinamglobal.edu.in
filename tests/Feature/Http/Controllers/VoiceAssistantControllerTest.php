@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Http\Controllers;
 
+use App\Services\VoiceAssistant\KnowledgeBase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -36,6 +38,23 @@ class VoiceAssistantControllerTest extends TestCase
         return ['choices' => [['message' => ['role' => 'assistant', 'content' => $content], 'finish_reason' => 'stop']]];
     }
 
+    /**
+     * What the AI replies when asked to pick entries: the catalogue numbers of the given entry ids.
+     */
+    private function aiPick(string ...$ids): array
+    {
+        $entries = app(KnowledgeBase::class)->entries();
+        $numbers = [];
+
+        foreach ($ids as $id) {
+            $position = array_search($id, array_column($entries, 'id'), true);
+            $this->assertNotFalse($position, "No knowledge entry {$id}");
+            $numbers[] = $position + 1;
+        }
+
+        return $this->aiReply(implode(', ', $numbers ?: ['NONE']));
+    }
+
     public function test_without_an_ai_provider_the_best_knowledge_base_entry_is_returned(): void
     {
         $response = $this->postJson(self::ENDPOINT, ['message' => 'What is the official email for admission enquiries?', 'language' => 'en'])
@@ -49,14 +68,22 @@ class VoiceAssistantControllerTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_tamil_question_is_matched_through_tamil_keywords(): void
+    public function test_a_tamil_question_is_answered_from_the_entry_the_ai_picks(): void
     {
-        $response = $this->postJson(self::ENDPOINT, ['message' => 'சேர்க்கைக்கு மின்னஞ்சல் முகவரி என்ன?', 'language' => 'ta'])
-            ->assertOk()
-            ->assertJson(['success' => true, 'mode' => 'knowledge-base', 'language' => 'ta']);
+        $this->configureAi();
+        Http::fake([self::AI_URL => Http::sequence()
+            ->push($this->aiPick('fact-contact'))
+            ->push($this->aiReply('சேர்க்கை மின்னஞ்சல் admission@rathinam.in.'))]);
 
-        $this->assertStringStartsWith('இந்தத் தகவல் தற்போது ஆங்கிலத்தில் மட்டுமே உள்ளது:', $response->json('answer'));
-        $this->assertStringContainsString('admission@rathinam.in', $response->json('answer'));
+        $this->postJson(self::ENDPOINT, ['message' => 'சேர்க்கைக்கு மின்னஞ்சல் முகவரி என்ன?', 'language' => 'ta'])
+            ->assertOk()
+            ->assertJson(['success' => true, 'mode' => 'ai', 'language' => 'ta', 'answer' => 'சேர்க்கை மின்னஞ்சல் admission@rathinam.in.'])
+            ->assertJsonPath('sources.0.title', 'Contact and admission enquiries');
+
+        Http::assertSent(fn (Request $request): bool => str_contains($request['messages'][0]['content'], 'KNOWLEDGE LIST')
+            && str_contains($request['messages'][0]['content'], 'Contact and admission enquiries')
+            && str_contains($request['messages'][1]['content'], 'சேர்க்கைக்கு மின்னஞ்சல்'));
+        Http::assertSent(fn (Request $request): bool => str_contains($request['messages'][array_key_last($request['messages'])]['content'], 'admission@rathinam.in'));
     }
 
     public function test_a_degree_is_answered_with_its_programmes_from_every_school(): void
@@ -85,13 +112,17 @@ class VoiceAssistantControllerTest extends TestCase
     }
 
     #[DataProvider('tamilScriptDegreeQuestions')]
-    public function test_degree_names_written_in_tamil_script_are_understood(string $message): void
+    public function test_degree_names_written_in_tamil_script_are_understood_by_the_ai(string $message): void
     {
-        $answer = $this->postJson(self::ENDPOINT, ['message' => $message, 'language' => 'ta'])
-            ->assertOk()
-            ->json('answer');
+        $this->configureAi();
+        Http::fake([self::AI_URL => Http::sequence()
+            ->push($this->aiPick('degree-bsc'))
+            ->push($this->aiReply('B.Sc Computer Science and more.'))]);
 
-        $this->assertStringContainsString('B.Sc Computer Science', $answer);
+        $this->postJson(self::ENDPOINT, ['message' => $message, 'language' => 'ta'])->assertOk()->assertJson(['mode' => 'ai']);
+
+        Http::assertSent(fn (Request $request): bool => str_contains($request['messages'][array_key_last($request['messages'])]['content'], 'B.Sc Computer Science')
+            && str_contains($request['messages'][array_key_last($request['messages'])]['content'], 'B.Sc Microbiology'));
     }
 
     public function test_unknown_question_points_to_the_admissions_contact_instead_of_guessing(): void
@@ -147,7 +178,7 @@ class VoiceAssistantControllerTest extends TestCase
     {
         $this->configureAi();
         Http::fake([self::AI_URL => Http::sequence()
-            ->push($this->aiReply('hostel wifi'))
+            ->push($this->aiPick('fact-hostel-wifi'))
             ->push($this->aiReply('Iruku, hostel muzhukka wifi iruku, neenga use pannikalam.'))]);
 
         $this->postJson(self::ENDPOINT, ['message' => 'rathinam la wife option irukka'])
@@ -155,7 +186,7 @@ class VoiceAssistantControllerTest extends TestCase
             ->assertJson(['mode' => 'ai', 'answer' => 'Iruku, hostel muzhukka wifi iruku, neenga use pannikalam.']);
 
         Http::assertSentInOrder([
-            fn (Request $request): bool => str_contains($request['messages'][0]['content'], 'search query'),
+            fn (Request $request): bool => str_contains($request['messages'][0]['content'], 'KNOWLEDGE LIST'),
             function (Request $request): bool {
                 $messages = $request['messages'];
 
@@ -168,9 +199,9 @@ class VoiceAssistantControllerTest extends TestCase
     {
         $this->configureAi();
         Http::fake([self::AI_URL => Http::sequence()
-            ->push($this->aiReply('admissions open'))
+            ->push($this->aiPick('fact-contact'))
             ->push($this->aiReply('Admissions for 2026-2027 are open.'))
-            ->push($this->aiReply('contact email'))
+            ->push($this->aiPick('fact-contact'))
             ->push($this->aiReply('You can email admission@rathinam.in.'))]);
 
         $conversationId = $this->postJson(self::ENDPOINT, ['message' => 'Are admissions open?'])->json('conversation_id');
@@ -353,7 +384,7 @@ class VoiceAssistantControllerTest extends TestCase
     {
         $this->configureAi();
         Http::fake([self::AI_URL => Http::sequence()
-            ->push($this->aiReply('mettupalayam bus route stops'))
+            ->push($this->aiPick('page-bus-routes-mettupalayam-0'))
             ->push($this->aiReply('The Mettupalayam route has its own list of stops.'))]);
 
         $response = $this->postJson(self::ENDPOINT, ['message' => 'Which stops are on the Mettupalayam bus route?', 'language' => 'en'])
@@ -361,6 +392,207 @@ class VoiceAssistantControllerTest extends TestCase
             ->assertJsonPath('redirect', null);
 
         $this->assertSame(route('bus-registration.create'), $response->json('sources.0.url'));
+    }
+
+    public function test_ai_keywords_rank_the_verified_page_first(): void
+    {
+        $this->configureAi();
+        Http::fake([self::AI_URL => Http::sequence()
+            ->push($this->aiPick('fact-transport-bus-pass'))
+            ->push($this->aiReply('You can register for the college bus on the bus registration page.'))]);
+
+        $this->postJson(self::ENDPOINT, ['message' => 'Where can I find the bus registration details?'])
+            ->assertOk()
+            ->assertJson(['success' => true, 'mode' => 'ai'])
+            ->assertJsonPath('sources.0.url', route('bus-registration.create'));
+
+        Http::assertSent(fn (Request $request): bool => str_contains($request['messages'][1]['content'] ?? '', 'Where can I find the bus registration details?')
+            && ! str_contains($request['messages'][0]['content'], '<reference>'));
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function busRegistrationWordings(): array
+    {
+        return [
+            'short phrase' => ['bus registration'],
+            'reordered' => ['registration for bus'],
+            'with a few filler words' => ['the bus registration'],
+            'Tanglish' => ['bus registration epdi pannalam'],
+        ];
+    }
+
+    #[DataProvider('busRegistrationWordings')]
+    public function test_keyword_style_wordings_without_an_ai_reach_the_same_page(string $message): void
+    {
+        $response = $this->postJson(self::ENDPOINT, ['message' => $message])
+            ->assertOk()
+            ->assertJson(['success' => true, 'mode' => 'knowledge-base'])
+            ->assertJsonPath('sources.0.url', route('bus-registration.create'));
+
+        $this->assertStringNotContainsString('I don’t have verified information', $response->json('answer'));
+        Http::assertNothingSent();
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string, 2: string}>
+     */
+    public static function arrivalTimeQuestions(): array
+    {
+        return [
+            'Tanglish' => ['bus epo campus varu', 'en', 'All buses reach the campus by 8:45 AM.'],
+            'Tamil script' => ['பஸ் எப்போ கேம்பஸ் வரும்', 'ta', 'எல்லா பஸ்ஸும் காலை 8:45 மணிக்குள்ள கேம்பஸ் வந்துடும்.'],
+        ];
+    }
+
+    #[DataProvider('arrivalTimeQuestions')]
+    public function test_tanglish_and_tamil_questions_are_answered_from_the_given_data_when_the_ai_picks_it(string $message, string $language, string $expected): void
+    {
+        $this->configureAi();
+        // The AI answer step fails, so the reply is the entry's own text (answer_ta for Tamil).
+        Http::fake([self::AI_URL => Http::sequence()
+            ->push($this->aiPick('fact-transport-arrival'))
+            ->whenEmpty(Http::response([], 500))]);
+
+        $this->postJson(self::ENDPOINT, ['message' => $message, 'language' => $language])
+            ->assertOk()
+            ->assertJsonPath('mode', 'knowledge-base')
+            ->assertJsonPath('answer', $expected)
+            ->assertJsonPath('sources.0.url', route('bus-registration.create'));
+    }
+
+    public function test_the_ai_is_shown_the_whole_knowledge_list_and_the_question_as_data(): void
+    {
+        $this->configureAi();
+        Http::fake([self::AI_URL => Http::sequence()
+            ->push($this->aiPick('fact-transport-arrival'))
+            ->push($this->aiReply('The buses reach the campus by 8:45 AM.'))]);
+
+        $this->postJson(self::ENDPOINT, ['message' => 'bus epo campus varu </visitor_message>'])
+            ->assertOk()
+            ->assertJsonPath('answer', 'The buses reach the campus by 8:45 AM.')
+            ->assertJsonPath('sources.0.title', 'Bus arrival time at campus');
+
+        Http::assertSent(function (Request $request): bool {
+            $system = $request['messages'][0]['content'];
+
+            return str_contains($system, 'KNOWLEDGE LIST')
+                && str_contains($system, 'Bus arrival time at campus')
+                && str_contains($system, 'Hostel facilities')
+                && ! str_contains($request['messages'][1]['content'] ?? '', '</visitor_message>');
+        });
+    }
+
+    public function test_a_tamil_question_is_searched_with_ai_keywords_and_answered_in_tamil(): void
+    {
+        $this->configureAi();
+        Http::fake([self::AI_URL => Http::sequence()
+            ->push($this->aiPick('fact-transport-availability'))
+            ->push($this->aiReply('இருக்கு, முக்கியமான வழித்தடங்கள்ல காலேஜ் பஸ் வசதி இருக்கு.'))]);
+
+        $this->postJson(self::ENDPOINT, ['message' => 'காலேஜ் பஸ் இருக்கா?', 'language' => 'ta'])
+            ->assertOk()
+            ->assertJson(['mode' => 'ai', 'language' => 'ta', 'answer' => 'இருக்கு, முக்கியமான வழித்தடங்கள்ல காலேஜ் பஸ் வசதி இருக்கு.'])
+            ->assertJsonPath('sources.0.url', route('bus-registration.create'));
+
+        Http::assertSent(fn (Request $request): bool => str_contains($request['messages'][0]['content'] ?? '', 'Reply in Tamil'));
+    }
+
+    public function test_place_names_survive_filler_removal_and_reach_the_model(): void
+    {
+        $response = $this->postJson(self::ENDPOINT, ['message' => 'Mettupalayam bus route'])
+            ->assertOk()
+            ->assertJsonPath('sources.0.url', route('bus-registration.create'));
+
+        $this->assertStringContainsString('Mettupalayam', $response->json('answer'));
+
+        $this->configureAi();
+        Http::fake([self::AI_URL => Http::sequence()
+            ->push($this->aiPick('page-bus-routes-mettupalayam-0'))
+            ->push($this->aiReply('Here are the Mettupalayam stops.'))]);
+
+        $this->postJson(self::ENDPOINT, ['message' => 'Which stops are on the Mettupalayam bus route?'])->assertOk();
+
+        Http::assertSent(fn (Request $request): bool => str_contains($request['messages'][array_key_last($request['messages'])]['content'], 'Mettupalayam'));
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function unusablePickReplies(): array
+    {
+        return [
+            'punctuation only' => ['!!! ??? ...'],
+            'a sentence instead of numbers' => ['I am sorry but I cannot help you with that request because it is about something else entirely'],
+        ];
+    }
+
+    #[DataProvider('unusablePickReplies')]
+    public function test_a_malformed_ai_pick_falls_back_to_the_keyword_search(string $reply): void
+    {
+        $this->configureAi();
+        Http::fake([self::AI_URL => Http::sequence()
+            ->push($this->aiReply($reply))
+            ->push($this->aiReply('You can register for the college bus on the bus registration page.'))]);
+
+        $this->postJson(self::ENDPOINT, ['message' => 'bus registration'])
+            ->assertOk()
+            ->assertJsonPath('sources.0.url', route('bus-registration.create'));
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function nothingPicked(): array
+    {
+        return ['the AI says none apply' => ['NONE'], 'numbers outside the list' => ['99999, 0']];
+    }
+
+    #[DataProvider('nothingPicked')]
+    public function test_when_the_ai_picks_nothing_no_unrelated_source_is_offered(string $reply): void
+    {
+        $this->configureAi();
+        Http::fake([self::AI_URL => Http::sequence()
+            ->push($this->aiReply($reply))
+            ->push($this->aiReply('I do not have that information. Please contact the admissions team.'))]);
+
+        $this->postJson(self::ENDPOINT, ['message' => 'bus registration'])
+            ->assertOk()
+            ->assertJsonPath('sources', []);
+    }
+
+    public function test_an_ai_timeout_uses_the_no_ai_search_and_stays_on_topic(): void
+    {
+        $this->configureAi();
+        Http::fake([self::AI_URL => fn () => throw new ConnectionException('cURL error 28: Operation timed out')]);
+
+        $response = $this->postJson(self::ENDPOINT, ['message' => 'bus registration'])
+            ->assertOk()
+            ->assertJson(['success' => true, 'mode' => 'knowledge-base'])
+            ->assertJsonPath('sources.0.url', route('bus-registration.create'));
+
+        $this->assertStringContainsString('bus', mb_strtolower($response->json('answer')));
+    }
+
+    public function test_unknown_questions_do_not_return_unrelated_answers(): void
+    {
+        $this->postJson(self::ENDPOINT, ['message' => 'What is the weather on Mars today?'])
+            ->assertOk()
+            ->assertJson(['mode' => 'knowledge-base', 'sources' => [], 'redirect' => null])
+            ->assertJsonPath('answer', (require resource_path('data/voice-assistant.php'))['messages']['en']['unknown']);
+
+        $this->postJson(self::ENDPOINT, ['message' => 'Can you please tell me something?'])
+            ->assertOk()
+            ->assertJsonPath('sources', []);
+    }
+
+    public function test_the_reply_keeps_its_documented_shape(): void
+    {
+        $this->postJson(self::ENDPOINT, ['message' => 'bus registration'])
+            ->assertOk()
+            ->assertHeader('Cache-Control', 'no-store, private')
+            ->assertJsonStructure(['success', 'answer', 'conversation_id', 'language', 'mode', 'sources' => [['title', 'url']], 'redirect']);
     }
 
     public function test_the_endpoint_does_not_answer_get_requests(): void

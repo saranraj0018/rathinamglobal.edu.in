@@ -11,11 +11,11 @@ use Illuminate\Support\Str;
  * content file (see SiteContent). Read-only — the
  * assistant has no way to change it, and nothing private is indexed.
  *
- * Retrieval is keyword scoring, which suits a few hundred entries. For a
- * larger document set, replace search() with an embedding index; callers
- * only depend on the returned entry shape.
+ * With an AI provider, the assistant picks entries from catalogue(). Without
+ * one, search() ranks them by word overlap weighted by rarity. Callers only
+ * depend on the returned entry shape.
  *
- * @phpstan-type Entry array{id: string, category: string, title: string, question: string, answer: string, answer_ta?: string, url: string}
+ * @phpstan-type Entry array{id: string, category: string, title: string, question: string, answer: string, answer_ta?: string, route?: string, url: string}
  * @phpstan-type Match array{entry: Entry, score: int, coverage: float}
  */
 class KnowledgeBase
@@ -49,41 +49,95 @@ class KnowledgeBase
     /**
      * Best-matching entries for a question, highest score first.
      *
+     * No word lists are involved: each word is weighted by how rare it is in the
+     * content (inverse document frequency), so filler such as "the" or "is" counts
+     * for almost nothing, and a word found nowhere (an unknown spelling) is ignored.
+     * Scores are in tenths of a point so they stay integers.
+     *
      * @return array<int, Match>
      */
     public function search(string $query, int $limit = 8): array
     {
-        $terms = $this->queryTerms($query);
+        $terms = array_values(array_filter($this->words($query), fn (string $word): bool => mb_strlen($word) > 1));
+        $entries = $this->entries();
+        $weights = [];
+        $frequency = array_fill_keys($terms, 0);
 
-        if ($terms === []) {
+        foreach ($entries as $position => $entry) {
+            foreach ($terms as $term) {
+                $weights[$position][$term] = match (true) {
+                    $this->containsTerm($this->index[$position]['question'], $term) => self::QUESTION_WEIGHT,
+                    $this->containsTerm($this->index[$position]['answer'], $term) => self::ANSWER_WEIGHT,
+                    default => 0,
+                };
+                $frequency[$term] += $weights[$position][$term] > 0 ? 1 : 0;
+            }
+        }
+
+        $rarity = [];
+
+        foreach ($frequency as $term => $count) {
+            if ($count > 0) {
+                $rarity[$term] = log(count($entries) / $count);
+            }
+        }
+
+        $totalRarity = array_sum($rarity);
+
+        if ($totalRarity <= 0) {
             return [];
         }
 
         $matches = [];
 
-        foreach ($this->entries() as $position => $entry) {
-            $score = 0;
-            $matched = 0;
+        foreach ($entries as $position => $entry) {
+            $score = 0.0;
+            $matched = 0.0;
 
-            foreach ($terms as $term) {
-                $weight = match (true) {
-                    $this->containsTerm($this->index[$position]['question'], $term) => self::QUESTION_WEIGHT,
-                    $this->containsTerm($this->index[$position]['answer'], $term) => self::ANSWER_WEIGHT,
-                    default => 0,
-                };
-
-                $score += $weight;
-                $matched += $weight > 0 ? 1 : 0;
+            foreach ($rarity as $term => $value) {
+                $score += $weights[$position][$term] * $value;
+                $matched += $weights[$position][$term] > 0 ? $value : 0;
             }
 
             if ($score > 0) {
-                $matches[] = ['entry' => $entry, 'score' => $score, 'coverage' => $matched / count($terms)];
+                $matches[] = ['entry' => $entry, 'score' => (int) round($score * 10), 'coverage' => $matched / $totalRarity];
             }
         }
 
         usort($matches, fn (array $a, array $b): int => $b['score'] <=> $a['score'] ?: $b['coverage'] <=> $a['coverage']);
 
         return array_slice($matches, 0, $limit);
+    }
+
+    /**
+     * One numbered line per entry ("12. Hostel Wi-Fi — Is Wi-Fi available in the hostel?"), the
+     * list the AI chooses from. Numbers are positions in entries() plus one.
+     *
+     * @return array<int, string>
+     */
+    public function catalogue(): array
+    {
+        $lines = [];
+
+        foreach ($this->entries() as $position => $entry) {
+            $question = $entry['question'] === $entry['title'] ? '' : ' — '.Str::limit($entry['question'], 110, '…');
+            $lines[] = ($position + 1).'. '.Str::limit($entry['title'], 90, '…').$question;
+        }
+
+        return $lines;
+    }
+
+    /**
+     * The entries behind catalogue() numbers; unknown numbers are ignored.
+     *
+     * @param  array<int, int>  $numbers
+     * @return array<int, Entry>
+     */
+    public function entriesNumbered(array $numbers): array
+    {
+        $entries = $this->entries();
+
+        return array_values(array_filter(array_map(fn (int $number): ?array => $entries[$number - 1] ?? null, $numbers)));
     }
 
     /**
@@ -148,7 +202,7 @@ class KnowledgeBase
         $this->entries = array_values($unique);
         $this->index = array_map(fn (array $entry): array => [
             'question' => $this->words($entry['question']),
-            'answer' => $this->words($entry['title'].' '.$entry['answer'].' '.$entry['category']),
+            'answer' => $this->words($entry['title'].' '.$entry['answer'].' '.($entry['answer_ta'] ?? '').' '.$entry['category'].' '.$this->routeWords($entry['route'] ?? null)),
         ], $this->entries);
 
         return $this->entries;
@@ -166,8 +220,21 @@ class KnowledgeBase
             'question' => $fact['question'],
             'answer' => $fact['answer'],
             'answer_ta' => $fact['answer_ta'] ?? null,
+            'route' => $fact['route'] ?? null,
             'url' => isset($fact['route']) ? route($fact['route']) : (string) ($fact['url'] ?? route('home')),
         ], fn (mixed $value): bool => $value !== null), $this->content->get('voice-assistant')['facts']);
+    }
+
+    /**
+     * The words of a descriptive route name ("bus-registration.create" -> "bus registration"), so a
+     * question naming a page finds it even when the page text never says so. One-word names such
+     * as "home" describe nothing and are skipped.
+     */
+    private function routeWords(?string $route): string
+    {
+        $name = explode('.', (string) $route)[0];
+
+        return str_contains($name, '-') ? str_replace('-', ' ', $name) : '';
     }
 
     /**
@@ -314,45 +381,15 @@ class KnowledgeBase
         return $this->programmes[$slug] = array_keys($programmes);
     }
 
-    /**
-     * Search terms for a question: synonyms and Tamil
-     * keywords mapped onto the English vocabulary of the content.
-     *
-     * @return array<int, string>
-     */
-    private function queryTerms(string $query): array
+    private function matchesTamil(string $word, string $term): bool
     {
-        $aliases = $this->content->get('voice-assistant')['aliases'];
-        $terms = [];
-
-        // Speech recognition may spell a degree letter by letter ("பி எஸ் சி"), which words() splits apart.
-        $spaced = ' '.trim((string) preg_replace('/[\s.]+/u', ' ', mb_strtolower($query))).' ';
-
-        foreach ($this->content->get('voice-assistant')['phrases'] as $phrase => $replacements) {
-            if (str_contains($spaced, ' '.$phrase.' ')) {
-                array_push($terms, ...$replacements);
-            }
+        if (preg_match('/^\p{Tamil}/u', $word) !== 1 || preg_match('/^\p{Tamil}/u', $term) !== 1) {
+            return false;
         }
 
-        foreach ($this->words($query) as $word) {
-            $mapped = null;
+        [$shorter, $longer] = mb_strlen($word) < mb_strlen($term) ? [$word, $term] : [$term, $word];
 
-            foreach ($aliases as $alias => $replacements) {
-                if ($word === $alias || (preg_match('/^\p{Tamil}/u', $word) === 1 && str_starts_with($word, $alias))) {
-                    $mapped = $replacements;
-                    break;
-                }
-            }
-
-            if ($mapped !== null) {
-                array_push($terms, ...$mapped);
-            } elseif (preg_match('/^\p{Tamil}/u', $word) !== 1 && mb_strlen($word) > 1) {
-                // An unmapped Tamil word cannot match English content, so it does not count against coverage.
-                $terms[] = $word;
-            }
-        }
-
-        return array_values(array_unique($terms));
+        return mb_strlen($shorter) >= 3 && str_starts_with($longer, $shorter);
     }
 
     /**
@@ -361,7 +398,12 @@ class KnowledgeBase
     private function containsTerm(array $words, string $term): bool
     {
         foreach ($words as $word) {
-            if ($word === $term) {
+            if ($word === $term || $this->matchesTamil($word, $term)) {
+                return true;
+            }
+
+            // Simple English plurals: "bus" ~ "buses", "fee" ~ "fees".
+            if ($word === $term.'s' || $word === $term.'es' || $term === $word.'s' || $term === $word.'es') {
                 return true;
             }
 

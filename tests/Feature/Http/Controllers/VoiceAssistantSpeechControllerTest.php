@@ -53,6 +53,29 @@ class VoiceAssistantSpeechControllerTest extends TestCase
             ->assertHeader('Content-Type', 'audio/mpeg');
     }
 
+    public function test_speech_receives_the_final_selected_answer_and_nothing_else(): void
+    {
+        config(['services.ai' => ['key' => 'k', 'model' => 'm', 'base_url' => 'https://ai.example.test/v1', 'provider_name' => 'Test AI', 'timeout' => 5, 'max_tokens' => 400]]);
+        Http::fake([
+            'https://ai.example.test/v1/chat/completions' => Http::sequence()
+                ->push(['choices' => [['message' => ['content' => 'bus registration']]]])
+                ->push(['choices' => [['message' => ['content' => 'Bus registration is on the bus page, and buses reach the campus by 8:45 AM.']]]]),
+            self::TTS_URL => Http::response(['audioContent' => base64_encode('MP3-AUDIO')]),
+        ]);
+
+        $reply = $this->postJson('/api/voice-assistant/chat', ['message' => 'Where can I find the bus registration details?', 'language' => 'en'])->assertOk();
+
+        $this->postJson(self::ENDPOINT, ['text' => 'bus registration', 'language' => 'en', 'conversation_id' => $reply->json('conversation_id')])
+            ->assertStatus(422);
+
+        $this->postJson(self::ENDPOINT, ['text' => $reply->json('answer'), 'language' => 'en', 'conversation_id' => $reply->json('conversation_id')])
+            ->assertOk();
+
+        Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'texttospeech')
+            && $request['input']['text'] === 'Bus registration is on the bus page, and buses reach the campus by 8:45 AM.');
+        Http::assertSentCount(3);
+    }
+
     public function test_audio_is_cached_so_a_repeated_reply_is_synthesised_once(): void
     {
         $this->fakeSpeech();
