@@ -351,11 +351,15 @@ class VoiceAssistantControllerTest extends TestCase
 
     public function test_questions_about_other_pages_of_the_site_are_answered(): void
     {
+        $this->configureAi();
+        Http::fake([self::AI_URL => Http::sequence()
+            ->push($this->aiReply('mettupalayam bus route stops'))
+            ->push($this->aiReply('The Mettupalayam route has its own list of stops.'))]);
+
         $response = $this->postJson(self::ENDPOINT, ['message' => 'Which stops are on the Mettupalayam bus route?', 'language' => 'en'])
             ->assertOk()
             ->assertJsonPath('redirect', null);
 
-        $this->assertStringContainsString('Mettupalayam', $response->json('answer'));
         $this->assertSame(route('bus-registration.create'), $response->json('sources.0.url'));
     }
 

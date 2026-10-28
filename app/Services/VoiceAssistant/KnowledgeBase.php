@@ -24,18 +24,6 @@ class KnowledgeBase
 
     private const ANSWER_WEIGHT = 1;
 
-    private const STOPWORDS = [
-        'a', 'about', 'an', 'and', 'any', 'are', 'at', 'be', 'by', 'can', 'could', 'do', 'does', 'for',
-        'from', 'give', 'have', 'has', 'how', 'i', 'in', 'is', 'it', 'its', 'know', 'like', 'me', 'my',
-        'of', 'on', 'or', 'our', 'please', 'tell', 'that', 'the', 'their', 'there', 'this', 'to', 'us',
-        'want', 'was', 'we', 'what', 'when', 'which', 'who', 'why', 'will', 'with', 'would', 'you', 'your',
-        'rathinam', 'rgu', 'rgi', 'university', 'college', 'institution', 'get', 'need', 'some', 'much', 'many',
-        'iruka', 'iruku', 'irukka', 'irukku', 'irukaa', 'irukkaa', 'irukum', 'irukkum', 'ah', 'aa', 'enna', 'yenna',
-        'epdi', 'eppadi', 'evlo', 'evalo', 'yella', 'ella', 'nenga', 'neenga', 'ungal', 'unga', 'sollu', 'solunga',
-        'option', 'options', 'venum', 'venu', 'pakum', 'pakkum', 'full', 'muzhukka', 'muluka', 'pannalam', 'panalam', 'ipo', 'ippo', 'illa', 'ila', 'la', 'ku', 'ah', 'ok',
-        'available', 'offer', 'offered', 'offers', 'provide', 'provided', 'currently', 'any', 'does', 'did',
-    ];
-
     /**
      * Degree names inside school data files ("B.Sc Computer Science", "MBA ...").
      */
@@ -327,7 +315,7 @@ class KnowledgeBase
     }
 
     /**
-     * Search terms for a question: stopwords dropped, synonyms and Tamil
+     * Search terms for a question: synonyms and Tamil
      * keywords mapped onto the English vocabulary of the content.
      *
      * @return array<int, string>
@@ -358,7 +346,7 @@ class KnowledgeBase
 
             if ($mapped !== null) {
                 array_push($terms, ...$mapped);
-            } elseif (preg_match('/^\p{Tamil}/u', $word) !== 1 && ! in_array($word, self::STOPWORDS, true) && mb_strlen($word) > 1) {
+            } elseif (preg_match('/^\p{Tamil}/u', $word) !== 1 && mb_strlen($word) > 1) {
                 // An unmapped Tamil word cannot match English content, so it does not count against coverage.
                 $terms[] = $word;
             }
