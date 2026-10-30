@@ -11,21 +11,13 @@ use Illuminate\Support\Str;
  * content file (see SiteContent). Read-only — the
  * assistant has no way to change it, and nothing private is indexed.
  *
- * With an AI provider, the assistant picks entries from catalogue(). Without
- * one, search() ranks them by word overlap weighted by rarity. Callers only
- * depend on the returned entry shape.
+ * The assistant gives the AI the whole catalogue() to choose entries from; no
+ * keyword matching is done here. Callers only depend on the returned entry shape.
  *
  * @phpstan-type Entry array{id: string, category: string, title: string, question: string, answer: string, answer_ta?: string, also_asked?: array<int, string>, route?: string, url: string}
- * @phpstan-type Match array{entry: Entry, score: int, coverage: float}
  */
 class KnowledgeBase
 {
-    private const QUESTION_WEIGHT = 3;
-
-    private const ALSO_ASKED_WEIGHT = 3;
-
-    private const ANSWER_WEIGHT = 1;
-
     /**
      * Degree names inside school data files ("B.Sc Computer Science", "MBA ...").
      */
@@ -37,88 +29,21 @@ class KnowledgeBase
     private ?array $entries = null;
 
     /**
-     * @var array<int, array{question: array<int, string>, also: array<int, string>, answer: array<int, string>}>
-     */
-    private array $index = [];
-
-    /**
      * @var array<string, array<int, string>>
      */
     private array $programmes = [];
 
+    private ?string $fingerprint = null;
+
     public function __construct(private ContentRepository $content, private SiteContent $site) {}
 
     /**
-     * Best-matching entries for a question, highest score first.
-     *
-     * The question is first normalised (queryTerms: filler dropped, spelling variants and
-     * aliases mapped), then each remaining word is weighted by how rare it is in the content
-     * (inverse document frequency), so generic words count for little and a topic word for a
-     * lot; a word found nowhere (an unknown spelling) is ignored. A word in an entry's
-     * question outweighs one in its alternative wordings, which outweighs one in its answer.
-     * Scores are in tenths of a point so they stay integers.
-     *
-     * @return array<int, Match>
+     * Changes whenever any approved content (FAQ, facts, schools, pages, messages, personas) changes,
+     * so cached picks and answers made from older content are never served.
      */
-    public function search(string $query, int $limit = 8): array
+    public function fingerprint(): string
     {
-        $queryTerms = $this->queryTerms($query);
-        $terms = array_map('strval', array_keys($queryTerms));
-        $entries = $this->entries();
-        $weights = [];
-        $frequency = array_fill_keys($terms, 0);
-
-        foreach ($entries as $position => $entry) {
-            foreach ($terms as $term) {
-                $weights[$position][$term] = match (true) {
-                    $this->containsTerm($this->index[$position]['question'], $term) => self::QUESTION_WEIGHT,
-                    $this->containsTerm($this->index[$position]['also'], $term) => self::ALSO_ASKED_WEIGHT,
-                    $this->containsTerm($this->index[$position]['answer'], $term) => self::ANSWER_WEIGHT,
-                    default => 0,
-                };
-                $frequency[$term] += $weights[$position][$term] > 0 ? 1 : 0;
-            }
-        }
-
-        $rarity = [];
-        $unmatchedRarity = 0.0;
-
-        foreach ($frequency as $term => $count) {
-            if ($count > 0) {
-                $rarity[$term] = log(count($entries) / $count);
-            } elseif ($queryTerms[$term] && preg_match('/^\p{Tamil}/u', (string) $term) !== 1) {
-                // A Latin-script word the visitor wrote that is found nowhere (an unknown topic or spelling)
-                // counts against the match. A Tamil word cannot be matched against English content, and a
-                // word an alias added is only a hint, so neither does.
-                $unmatchedRarity += log(count($entries));
-            }
-        }
-
-        $totalRarity = array_sum($rarity) + $unmatchedRarity;
-
-        if ($rarity === [] || $totalRarity <= 0) {
-            return [];
-        }
-
-        $matches = [];
-
-        foreach ($entries as $position => $entry) {
-            $score = 0.0;
-            $matched = 0.0;
-
-            foreach ($rarity as $term => $value) {
-                $score += $weights[$position][$term] * $value;
-                $matched += $weights[$position][$term] > 0 ? $value : 0;
-            }
-
-            if ($score > 0) {
-                $matches[] = ['entry' => $entry, 'score' => (int) round($score * 10), 'coverage' => $matched / $totalRarity];
-            }
-        }
-
-        usort($matches, fn (array $a, array $b): int => $b['score'] <=> $a['score'] ?: $b['coverage'] <=> $a['coverage']);
-
-        return array_slice($matches, 0, $limit);
+        return $this->fingerprint ??= sha1((string) json_encode([$this->entries(), $this->content->get('voice-assistant')]));
     }
 
     /**
@@ -151,21 +76,6 @@ class KnowledgeBase
         $entries = $this->entries();
 
         return array_values(array_filter(array_map(fn (int $number): ?array => $entries[$number - 1] ?? null, $numbers)));
-    }
-
-    /**
-     * General entries used when a question matches nothing specific (for
-     * example a Tamil question with no known keyword), so the AI still has
-     * approved material to answer from.
-     *
-     * @return array<int, Entry>
-     */
-    public function overview(): array
-    {
-        return array_values(array_filter(
-            $this->entries(),
-            fn (array $entry): bool => in_array($entry['category'], ['About', 'Contact', 'Academics'], true) && str_starts_with($entry['id'], 'fact-'),
-        ));
     }
 
     /**
@@ -202,7 +112,7 @@ class KnowledgeBase
             return $this->entries;
         }
 
-        // Curated entries first: they win ties and keep their place when questions repeat.
+        // Curated entries first: they keep their place when questions repeat.
         $entries = [...$this->factEntries(), ...$this->faqEntries(), ...$this->schoolEntries(), ...$this->degreeEntries(), ...$this->site->entries()];
 
         // The FAQ repeats a few questions across categories; keep the first.
@@ -213,11 +123,6 @@ class KnowledgeBase
         }
 
         $this->entries = array_values($unique);
-        $this->index = array_map(fn (array $entry): array => [
-            'question' => $this->words($entry['question']),
-            'also' => $this->words(implode(' ', $entry['also_asked'] ?? [])),
-            'answer' => $this->words($entry['title'].' '.$entry['answer'].' '.($entry['answer_ta'] ?? '').' '.$entry['category'].' '.$this->routeWords($entry['route'] ?? null)),
-        ], $this->entries);
 
         return $this->entries;
     }
@@ -238,18 +143,6 @@ class KnowledgeBase
             'route' => $fact['route'] ?? null,
             'url' => isset($fact['route']) ? route($fact['route']) : (string) ($fact['url'] ?? route('home')),
         ], fn (mixed $value): bool => $value !== null), $this->content->get('voice-assistant')['facts']);
-    }
-
-    /**
-     * The words of a descriptive route name ("bus-registration.create" -> "bus registration"), so a
-     * question naming a page finds it even when the page text never says so. One-word names such
-     * as "home" describe nothing and are skipped.
-     */
-    private function routeWords(?string $route): string
-    {
-        $name = explode('.', (string) $route)[0];
-
-        return str_contains($name, '-') ? str_replace('-', ' ', $name) : '';
     }
 
     /**
@@ -394,125 +287,6 @@ class KnowledgeBase
         });
 
         return $this->programmes[$slug] = array_keys($programmes);
-    }
-
-    /**
-     * The question as the search sees it, for debugging.
-     */
-    public function normalise(string $query): string
-    {
-        return implode(' ', array_keys($this->queryTerms($query)));
-    }
-
-    /**
-     * Search terms for a question: filler words ('stopwords') dropped, synonyms and Tamil
-     * keywords mapped onto the English vocabulary of the content ('aliases', 'phrases').
-     * An intent word such as "where" (-> address) only counts when no topic word is left,
-     * so "hostel wifi, where?" is about the hostel, not the address.
-     *
-     * @return array<string, bool> term => whether the visitor wrote it (false when it came from an alias or phrase)
-     */
-    private function queryTerms(string $query): array
-    {
-        $data = $this->content->get('voice-assistant');
-        $stopwords = array_flip($data['stopwords']);
-        $terms = [];
-        $intentTerms = [];
-
-        // Speech recognition may spell a degree letter by letter ("பி எஸ் சி"), which words() splits apart.
-        $spaced = ' '.trim((string) preg_replace('/[\s.]+/u', ' ', $this->fold($query))).' ';
-
-        foreach ($data['phrases'] as $phrase => $replacements) {
-            if (str_contains($spaced, ' '.$phrase.' ')) {
-                $terms = [...$terms, ...array_fill_keys($replacements, false)];
-            }
-        }
-
-        foreach ($this->words($query) as $word) {
-            $mapped = null;
-
-            foreach ($data['aliases'] as $alias => $replacements) {
-                if ($word === (string) $alias || (preg_match('/^\p{Tamil}/u', $word) === 1 && str_starts_with($word, (string) $alias))) {
-                    $mapped = $replacements;
-                    break;
-                }
-            }
-
-            if ($mapped !== null && isset($stopwords[$word])) {
-                $intentTerms = [...$intentTerms, ...array_fill_keys($mapped, false)];
-            } elseif ($mapped !== null) {
-                $terms = [...$terms, ...array_fill_keys($mapped, false)];
-            } elseif (! isset($stopwords[$word]) && mb_strlen($word) > 1) {
-                $terms[$word] = true;
-            }
-        }
-
-        return $terms !== [] ? $terms : $intentTerms;
-    }
-
-    private function matchesTamil(string $word, string $term): bool
-    {
-        if (preg_match('/^\p{Tamil}/u', $word) !== 1 || preg_match('/^\p{Tamil}/u', $term) !== 1) {
-            return false;
-        }
-
-        [$shorter, $longer] = mb_strlen($word) < mb_strlen($term) ? [$word, $term] : [$term, $word];
-
-        return mb_strlen($shorter) >= 4 && str_starts_with($longer, $shorter);
-    }
-
-    /**
-     * @param  array<int, string>  $words
-     */
-    private function containsTerm(array $words, string $term): bool
-    {
-        foreach ($words as $word) {
-            if ($word === $term || $this->matchesTamil($word, $term)) {
-                return true;
-            }
-
-            // Simple English endings: "bus" ~ "buses", "wash" ~ "washed" ~ "washing".
-            foreach (['s', 'es', 'ed', 'd', 'ing'] as $suffix) {
-                if ($word === $term.$suffix || $term === $word.$suffix) {
-                    return true;
-                }
-            }
-
-            // One typo in a longer word: "watter" ~ "water", "hostal" ~ "hostel".
-            if (mb_strlen($word) >= 5 && mb_strlen($term) >= 5 && preg_match('/^[a-z]+$/', $word.$term) === 1 && levenshtein($word, $term) === 1) {
-                return true;
-            }
-
-            // Plural / suffix forms: "admission" ~ "admissions", but not "host" ~ "hostel".
-            [$shorter, $longer] = mb_strlen($word) < mb_strlen($term) ? [$word, $term] : [$term, $word];
-
-            if (mb_strlen($shorter) >= 5 && mb_strlen($longer) - mb_strlen($shorter) <= 2 && str_starts_with($longer, $shorter)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Lowercase words; \p{M} keeps Tamil vowel signs attached to their letters.
-     *
-     * @return array<int, string>
-     */
-    private function words(string $text): array
-    {
-        $words = preg_split('/[^\p{L}\p{M}\p{N}.]+/u', $this->fold($text), -1, PREG_SPLIT_NO_EMPTY) ?: [];
-
-        // Dots are dropped so "B.Sc", "BSc" and "bsc" are the same word.
-        return array_values(array_unique(array_filter(array_map(fn (string $word): string => str_replace('.', '', $word), $words))));
-    }
-
-    /**
-     * Lowercase, with the spelling variants of 'variants' folded ("Wi-Fi" -> "wifi").
-     */
-    private function fold(string $text): string
-    {
-        return strtr(mb_strtolower($text), $this->content->get('voice-assistant')['variants']);
     }
 
     private function plain(string $html): string

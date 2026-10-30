@@ -58,7 +58,7 @@ class VoiceAssistantSpeechControllerTest extends TestCase
         config(['services.ai' => ['key' => 'k', 'model' => 'm', 'base_url' => 'https://ai.example.test/v1', 'provider_name' => 'Test AI', 'timeout' => 5, 'max_tokens' => 400]]);
         Http::fake([
             'https://ai.example.test/v1/chat/completions' => Http::sequence()
-                ->push(['choices' => [['message' => ['content' => 'bus registration']]]])
+                ->push(['choices' => [['message' => ['content' => '1']]]])
                 ->push(['choices' => [['message' => ['content' => 'Bus registration is on the bus page, and buses reach the campus by 8:45 AM.']]]]),
             self::TTS_URL => Http::response(['audioContent' => base64_encode('MP3-AUDIO')]),
         ]);
@@ -78,13 +78,19 @@ class VoiceAssistantSpeechControllerTest extends TestCase
 
     public function test_a_tts_failure_leaves_the_text_answer_intact_and_a_retry_speaks_the_same_text(): void
     {
-        Http::fake([self::TTS_URL => Http::sequence()
-            ->push([], 500)
-            ->push(['audioContent' => base64_encode('MP3-AUDIO')])]);
+        config(['services.ai' => ['key' => 'k', 'model' => 'm', 'base_url' => 'https://ai.example.test/v1', 'provider_name' => 'Test AI', 'timeout' => 5, 'max_tokens' => 400]]);
+        Http::fake([
+            'https://ai.example.test/v1/chat/completions' => Http::sequence()
+                ->push(['choices' => [['message' => ['content' => '1']]]])
+                ->push(['choices' => [['message' => ['content' => 'Yes, Wi-Fi is available throughout the hostel.']]]]),
+            self::TTS_URL => Http::sequence()
+                ->push([], 500)
+                ->push(['audioContent' => base64_encode('MP3-AUDIO')]),
+        ]);
 
         $reply = $this->postJson('/api/voice-assistant/chat', ['message' => 'hostel la wifi irukka', 'language' => 'en'])->assertOk();
         $answer = $reply->json('answer');
-        $this->assertSame('Yes. Wi-Fi connectivity is available throughout the hostel premises.', $answer);
+        $this->assertSame('Yes, Wi-Fi is available throughout the hostel.', $answer);
 
         $payload = ['text' => $answer, 'language' => 'en', 'conversation_id' => $reply->json('conversation_id')];
 

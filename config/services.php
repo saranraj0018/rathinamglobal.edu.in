@@ -49,7 +49,7 @@ return [
     | Without a key, answers are spoken only where the browser has a voice.
     | Voice names: https://cloud.google.com/text-to-speech/docs/voices
     */
-     'google_tts' => [
+    'google_tts' => [
         'key' => env('GOOGLE_TTS_KEY'),
         'timeout' => (int) env('GOOGLE_TTS_TIMEOUT', 15),
         'voices' => [

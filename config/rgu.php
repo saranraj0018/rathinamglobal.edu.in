@@ -83,12 +83,9 @@ return [
 
     'voice_assistant' => [
         'enabled' => (bool) env('VOICE_ASSISTANT_ENABLED', true),
-        // Logs how each question was understood and which entry won (see VoiceAssistant::trace()).
-        'debug' => (bool) env('VOICE_ASSISTANT_DEBUG', in_array(env('APP_ENV'), ['local', 'testing'], true)),
         'max_message_length' => 500,
         'history_turns' => 3,
         'conversation_ttl' => 1800,
-        'context_entries' => 8,
         'max_answer_length' => 1200,
     ],
 
