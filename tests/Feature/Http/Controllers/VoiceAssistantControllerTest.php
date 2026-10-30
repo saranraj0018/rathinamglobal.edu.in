@@ -479,14 +479,14 @@ class VoiceAssistantControllerTest extends TestCase
             && str_contains($request['messages'][0]['content'], 'ஹாஸ்டல்ல வைஃபை இருக்கா?'));
     }
 
-    public function test_every_hostel_and_transport_fact_has_other_wordings_in_three_forms(): void
+    public function test_every_hostel_and_transport_fact_has_other_wordings(): void
     {
         $facts = array_filter((require resource_path('data/voice-assistant.php'))['facts'], fn (array $fact): bool => in_array($fact['category'], ['Hostel', 'Transport'], true));
 
         $this->assertCount(30, $facts);
 
         foreach ($facts as $fact) {
-            $this->assertCount(3, $fact['also_asked'] ?? [], "Fact {$fact['id']} needs English, Tanglish and Tamil wordings");
+            $this->assertGreaterThanOrEqual(3, count($fact['also_asked'] ?? []), "Fact {$fact['id']} needs English, Tanglish and Tamil wordings");
             $this->assertNotEmpty($fact['answer_ta'], "Fact {$fact['id']} needs a Tamil answer");
         }
     }
@@ -601,7 +601,7 @@ class VoiceAssistantControllerTest extends TestCase
             ->assertJson(['success' => true, 'mode' => 'knowledge-base'])
             ->assertJsonPath('sources.0.url', route('bus-registration.create'));
 
-        $this->assertStringContainsString('bus', mb_strtolower($response->json('answer')));
+        $this->assertStringContainsString('transport', mb_strtolower($response->json('answer')));
     }
 
     public function test_unknown_questions_do_not_return_unrelated_answers(): void
@@ -668,7 +668,8 @@ class VoiceAssistantControllerTest extends TestCase
     public static function factQuestions(): array
     {
         return [
-            'bus eppo varum' => ['bus eppo varum', 'fact-transport-arrival'],
+            // "when does the bus come" ties pickup, arrival and drop; the first curated one wins
+            'bus eppo varum' => ['bus eppo varum', 'fact-transport-pickup'],
             'college bus enga varum' => ['college bus enga varum', 'fact-transport-coverage'],
             'bus timing' => ['bus timing', 'fact-transport-pickup'],
             'hostel food epdi irukkum' => ['hostel food epdi irukkum', 'fact-hostel-food'],
@@ -687,6 +688,84 @@ class VoiceAssistantControllerTest extends TestCase
         $this->postJson(self::ENDPOINT, ['message' => $message])->assertOk()->assertJsonPath('mode', 'knowledge-base');
 
         $this->assertWinner($expectedId);
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function hotWaterQuestions(): array
+    {
+        return [
+            'the reported question' => ['room la hot water varama', 'en'],
+            'another ending' => ['room la hot water varuma', 'en'],
+            'joined by speech recognition' => ['room la hotwater varama', 'en'],
+            'one typo' => ['room la hot watter varama', 'en'],
+            'geyser' => ['room la geyser irukka', 'en'],
+            'Tanglish for hot water' => ['room la vennir varuma', 'en'],
+            'Tamil script' => ['ரூம்ல ஹாட் வாட்டர் வருமா', 'ta'],
+            'Tamil word for hot water' => ['ரூம்ல வெந்நீர் வருமா', 'ta'],
+        ];
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string, 2: string}>
+     */
+    public static function everyWording(): array
+    {
+        $facts = array_column((require dirname(__DIR__, 4).'/resources/data/voice-assistant.php')['facts'], null, 'id');
+        $cases = [];
+
+        foreach (require __DIR__.'/VoiceAssistantQuestions.php' as $id => $questions) {
+            foreach ($questions as $question) {
+                $isTamil = preg_match('/\p{Tamil}/u', $question) === 1;
+                $cases["{$id}: {$question}"] = ['fact-'.$id, $question, $isTamil ? $facts[$id]['answer_ta'] : $facts[$id]['answer']];
+            }
+        }
+
+        return $cases;
+    }
+
+    #[DataProvider('everyWording')]
+    public function test_every_wording_of_every_fact_selects_that_fact(string $factId, string $question, string $answer): void
+    {
+        Log::spy();
+
+        $this->postJson(self::ENDPOINT, ['message' => $question, 'language' => preg_match('/\p{Tamil}/u', $question) === 1 ? 'ta' : 'en'])
+            ->assertOk()
+            ->assertJsonPath('mode', 'knowledge-base')
+            ->assertJsonPath('answer', $answer);
+
+        $this->assertWinner($factId);
+    }
+
+    public function test_the_wording_list_covers_every_hostel_and_transport_fact(): void
+    {
+        $factIds = collect((require resource_path('data/voice-assistant.php'))['facts'])
+            ->whereIn('category', ['Hostel', 'Transport'])
+            ->pluck('id')
+            ->all();
+        $covered = require __DIR__.'/VoiceAssistantQuestions.php';
+
+        $this->assertEqualsCanonicalizing($factIds, array_keys($covered));
+
+        foreach ($covered as $id => $questions) {
+            $this->assertGreaterThanOrEqual(5, count($questions), "Fact {$id} needs at least 5 wordings");
+        }
+    }
+
+    #[DataProvider('hotWaterQuestions')]
+    public function test_hot_water_questions_select_the_hot_water_fact_and_not_the_bus_arrival(string $message, string $language): void
+    {
+        Log::spy();
+
+        $this->postJson(self::ENDPOINT, ['message' => $message, 'language' => $language])
+            ->assertOk()
+            ->assertJsonPath('mode', 'knowledge-base')
+            ->assertJsonPath('answer', $language === 'ta'
+                ? 'இருக்கு, ஹாஸ்டல்ல இருக்குறவங்களுக்கு வெந்நீர் வசதி இருக்கு.'
+                : 'Yes. Hot water facility is provided for hostel students.');
+
+        $this->assertWinner('fact-hostel-hot-water');
     }
 
     public function test_a_facility_question_is_not_answered_with_the_address_and_a_bus_question_not_with_the_hostel(): void

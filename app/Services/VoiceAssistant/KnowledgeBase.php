@@ -22,7 +22,7 @@ class KnowledgeBase
 {
     private const QUESTION_WEIGHT = 3;
 
-    private const ALSO_ASKED_WEIGHT = 2;
+    private const ALSO_ASKED_WEIGHT = 3;
 
     private const ANSWER_WEIGHT = 1;
 
@@ -471,8 +471,15 @@ class KnowledgeBase
                 return true;
             }
 
-            // Simple English plurals: "bus" ~ "buses", "fee" ~ "fees".
-            if ($word === $term.'s' || $word === $term.'es' || $term === $word.'s' || $term === $word.'es') {
+            // Simple English endings: "bus" ~ "buses", "wash" ~ "washed" ~ "washing".
+            foreach (['s', 'es', 'ed', 'd', 'ing'] as $suffix) {
+                if ($word === $term.$suffix || $term === $word.$suffix) {
+                    return true;
+                }
+            }
+
+            // One typo in a longer word: "watter" ~ "water", "hostal" ~ "hostel".
+            if (mb_strlen($word) >= 5 && mb_strlen($term) >= 5 && preg_match('/^[a-z]+$/', $word.$term) === 1 && levenshtein($word, $term) === 1) {
                 return true;
             }
 

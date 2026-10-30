@@ -393,7 +393,8 @@ class VoiceAssistant
                 && ! str_starts_with($match['entry']['id'], 'degree-'),
         ));
 
-        if (str_starts_with($best['entry']['id'], 'degree-') || $best['coverage'] < 1) {
+        // A curated fact answers exactly one question, so it is not padded with its neighbours.
+        if (str_starts_with($best['entry']['id'], 'degree-') || str_starts_with($best['entry']['id'], 'fact-') || $best['coverage'] < 1) {
             $related = [$best];
         }
 
