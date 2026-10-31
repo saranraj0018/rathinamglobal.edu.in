@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Assistant\AssistantController;
 use App\Http\Controllers\BrochureController;
 use App\Http\Controllers\BrochureLeadController;
 use App\Http\Controllers\BusRegistrationController;
@@ -16,8 +17,6 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ResearchController;
 use App\Http\Controllers\RguWayController;
 use App\Http\Controllers\SchoolController;
-use App\Http\Controllers\VoiceAssistantController;
-use App\Http\Controllers\VoiceAssistantSpeechController;
 use App\Support\ContentRepository;
 use Illuminate\Support\Facades\Route;
 
@@ -99,14 +98,17 @@ Route::post('/acbus/submit', [BusRegistrationController::class, 'store'])
     ->middleware('throttle:bus-registration')
     ->name('bus-registration.store');
 
-/* Website voice assistant ---------------------------------------------- */
-// A web route (session + CSRF) so only pages of this site can call it.
-Route::post('/api/voice-assistant/chat', VoiceAssistantController::class)
-    ->middleware('throttle:voice-assistant')
-    ->name('voice-assistant.chat');
-Route::post('/api/voice-assistant/speech', VoiceAssistantSpeechController::class)
-    ->middleware('throttle:voice-assistant-speech')
-    ->name('voice-assistant.speech');
+/* AI FAQ & voice assistant ------------------------------------------- */
+// Web routes (session + CSRF) so only pages of this site can call them; see AssistantController.
+Route::prefix('api/assistant')->name('assistant.')->controller(AssistantController::class)->group(function (): void {
+    Route::post('/ask', 'ask')->middleware('throttle:assistant')->name('ask');
+    Route::post('/feedback', 'feedback')->middleware('throttle:assistant')->name('feedback');
+    Route::get('/history/{conversation}', 'history')->middleware('throttle:assistant')->name('history');
+    Route::post('/transcribe', 'transcribe')->middleware('throttle:assistant-media')->name('transcribe');
+    Route::post('/speak', 'speak')->middleware('throttle:assistant-media')->name('speak');
+});
+
+require __DIR__.'/admin.php';
 
 /* Internal dashboards ---------------------------------------------------- */
 Route::prefix('report')->name('reports.')->controller(ReportController::class)->group(function (): void {

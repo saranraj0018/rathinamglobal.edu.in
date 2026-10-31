@@ -69,24 +69,4 @@ return [
         ],
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Website voice assistant
-    |--------------------------------------------------------------------------
-    |
-    | Answers come from resources/data/voice-assistant.php, the FAQ and the
-    | school pages; the AI provider is configured under services.ai. Only the
-    | last few turns of a conversation are kept, in the cache, for
-    | conversation_ttl seconds. Audio never reaches the server.
-    |
-    */
-
-    'voice_assistant' => [
-        'enabled' => (bool) env('VOICE_ASSISTANT_ENABLED', true),
-        'max_message_length' => 500,
-        'history_turns' => 3,
-        'conversation_ttl' => 1800,
-        'max_answer_length' => 1200,
-    ],
-
 ];
