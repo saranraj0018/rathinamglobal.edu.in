@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Assistant\AssistantController;
+use App\Http\Controllers\Assistant\VoiceWidgetController;
 use App\Http\Controllers\BrochureController;
 use App\Http\Controllers\BrochureLeadController;
 use App\Http\Controllers\BusRegistrationController;
@@ -107,6 +108,10 @@ Route::prefix('api/assistant')->name('assistant.')->controller(AssistantControll
     Route::post('/transcribe', 'transcribe')->middleware('throttle:assistant-media')->name('transcribe');
     Route::post('/speak', 'speak')->middleware('throttle:assistant-media')->name('speak');
 });
+
+// Endpoints used by the floating widget (public/js/voice-assistant.js).
+Route::post('/api/voice-assistant/chat', [VoiceWidgetController::class, 'chat'])->middleware('throttle:assistant')->name('voice-assistant.chat');
+Route::post('/api/voice-assistant/speech', [VoiceWidgetController::class, 'speech'])->middleware('throttle:assistant-media')->name('voice-assistant.speech');
 
 require __DIR__.'/admin.php';
 

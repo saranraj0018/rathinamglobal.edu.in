@@ -14,7 +14,7 @@
 @yield('body')
 @if (config('assistant.enabled'))
     @sectionMissing('without-voice-assistant')
-        @include('components.assistant-widget')
+        @include('components.voice-assistant')
     @endif
 @endif
 @stack('scripts')

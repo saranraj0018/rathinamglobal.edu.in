@@ -53,8 +53,8 @@ return [
 
     'tts' => [
         'voices' => [
-            'ta' => ['language_code' => 'ta-IN', 'name' => env('GOOGLE_TTS_VOICE_TA', 'ta-IN-Chirp3-HD-Aoede')],
-            'en' => ['language_code' => 'en-IN', 'name' => env('GOOGLE_TTS_VOICE_EN', 'en-IN-Chirp3-HD-Aoede')],
+            'ta' => ['language_code' => 'ta-IN', 'name' => env('GOOGLE_TTS_VOICE_TA', 'ta-IN-Chirp3-HD-Aoede'), 'name_male' => env('GOOGLE_TTS_VOICE_TA_MALE', 'ta-IN-Chirp3-HD-Charon')],
+            'en' => ['language_code' => 'en-IN', 'name' => env('GOOGLE_TTS_VOICE_EN', 'en-IN-Chirp3-HD-Aoede'), 'name_male' => env('GOOGLE_TTS_VOICE_EN_MALE', 'en-IN-Chirp3-HD-Charon')],
         ],
         'speaking_rate' => (float) env('GOOGLE_TTS_SPEAKING_RATE', 1.0),
         'pitch' => 0.0,

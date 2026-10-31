@@ -43,10 +43,11 @@ class TextToSpeechService
      *
      * @throws SpeechServiceException
      */
-    public function synthesize(string $text, string $language): string
+    public function synthesize(string $text, string $language, string $gender = 'female'): string
     {
         $text = $this->plainText($text);
         $voice = config('assistant.tts.voices.'.$this->voiceLanguageFor($text, $language));
+        $voice['name'] = $gender === 'male' ? ($voice['name_male'] ?? $voice['name']) : $voice['name'];
         $rate = (float) config('assistant.tts.speaking_rate');
         $cacheKey = 'assistant:tts:'.sha1($voice['name'].'|'.$rate.'|'.$text);
 

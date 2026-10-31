@@ -309,4 +309,20 @@ class AssistantAskTest extends AssistantTestCase
         $this->assertSame('answered', $reply['message']['status']);
         Http::assertNothingSent();
     }
+
+    public function test_existing_widget_endpoints_are_served_by_the_new_backend(): void
+    {
+        $this->bcaFeeFaq();
+        $this->fakeGemini('The BCA fee is Rs 85,000.');
+
+        $first = $this->postJson(route('voice-assistant.chat'), ['message' => 'BCA fee?', 'language' => 'en'])
+            ->assertOk()->assertJson(['success' => true, 'answer' => 'The BCA fee is Rs 85,000.', 'language' => 'en'])
+            ->assertJsonStructure(['conversation_id', 'sources']);
+
+        $this->postJson(route('voice-assistant.speech'), ['text' => 'made up text', 'language' => 'en', 'conversation_id' => $first->json('conversation_id')])
+            ->assertStatus(422);
+        Http::fake(['texttospeech.googleapis.com/*' => Http::response(['audioContent' => base64_encode('MP3')])]);
+        $this->postJson(route('voice-assistant.speech'), ['text' => 'The BCA fee is Rs 85,000.', 'language' => 'en', 'conversation_id' => $first->json('conversation_id'), 'persona' => 'admissions'])
+            ->assertOk()->assertHeader('Content-Type', 'audio/mpeg');
+    }
 }

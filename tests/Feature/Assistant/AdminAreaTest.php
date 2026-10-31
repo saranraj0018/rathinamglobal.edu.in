@@ -134,6 +134,6 @@ class AdminAreaTest extends AssistantTestCase
 
     public function test_the_public_site_still_renders_with_the_new_widget(): void
     {
-        $this->get('/')->assertOk()->assertSee('data-ask=', false);
+        $this->get('/')->assertOk()->assertSee('id="rva"', false);
     }
 }

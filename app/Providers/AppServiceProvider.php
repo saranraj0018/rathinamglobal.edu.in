@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Services\Assistant\GeminiService;
+use App\Services\Assistant\TextToSpeechService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -57,6 +59,28 @@ class AppServiceProvider extends ServiceProvider
             $path = request()->path();
 
             $view->with('canonicalUrl', config('rgu.canonical_url').'/'.($path === '/' ? '' : $path));
+        });
+
+        View::composer('components.voice-assistant', function (ViewInstance $view): void {
+            $personas = collect(require resource_path('data/assistant-personas.php'))
+                ->map(fn (array $persona): array => [
+                    'name' => $persona['name'],
+                    'role' => $persona['role'],
+                    'voice' => $persona['voice'],
+                    'image' => versioned_asset($persona['image']),
+                    'greeting' => $persona['greeting'],
+                ])
+                ->all();
+
+            $view->with('voiceAssistant', [
+                'endpoint' => route('voice-assistant.chat'),
+                'speechEndpoint' => $this->app->make(TextToSpeechService::class)->isConfigured() ? route('voice-assistant.speech') : '',
+                'csrfToken' => csrf_token(),
+                'usesAi' => $this->app->make(GeminiService::class)->isConfigured(),
+                'providerName' => 'Google Gemini',
+                'maxLength' => (int) config('assistant.max_message_length'),
+                'personas' => $personas,
+            ]);
         });
 
         View::composer('partials.footer', function (ViewInstance $view): void {
