@@ -24,7 +24,9 @@
      data-csrf="{{ $voiceAssistant['csrfToken'] }}"
      data-uses-ai="{{ $voiceAssistant['usesAi'] ? '1' : '0' }}"
      data-provider="{{ $voiceAssistant['providerName'] }}"
-     data-max-length="{{ $voiceAssistant['maxLength'] }}">
+     data-max-length="{{ $voiceAssistant['maxLength'] }}"
+     {{-- THIS IS NEW CODE — expose the native Live feature flag to the browser. Reason: permit safe rollback to the existing transcription path without editing environment settings. --}}
+     data-native-live="{{ config('assistant.gemini_live.native_enabled', true) ? '1' : '0' }}">
 
     <button type="button" class="rva-launcher" aria-expanded="false" aria-controls="rva-panel" data-rva="launcher">
         <span class="rva-launcher__orb" aria-hidden="true">
@@ -46,10 +48,12 @@
                 <button type="button" class="rva-icon" data-rva="team" aria-label="Choose someone else" data-i18n-label="changePersona">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/></svg>
                 </button>
+                {{-- OLD CODE — NOT USED NOW: the assistant detects Tamil or English from the question, so this selector confused callers.
                 <div class="rva-lang" role="group" aria-label="Language" data-i18n-label="language">
                     <button type="button" class="rva-lang__btn" data-lang="en" aria-pressed="true" lang="en">EN</button>
                     <button type="button" class="rva-lang__btn" data-lang="ta" aria-pressed="false" lang="ta">தமிழ்</button>
                 </div>
+                --}}
                 <button type="button" class="rva-icon" data-rva="mute" aria-pressed="false" aria-label="Mute voice replies" data-i18n-label="mute">
                     <svg class="rva-ico-on" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg>
                     <svg class="rva-ico-off" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4zM22 9l-6 6M16 9l6 6"/></svg>
@@ -65,6 +69,7 @@
                 <h3 class="rva-intro__title" data-i18n="teamTitle">Rathinam AI Team</h3>
                 <p class="rva-intro__text" data-i18n="teamText">Choose who you’d like to talk to.</p>
 
+                {{-- OLD CODE — NOT USED NOW: four selectable personas made the voice assistant look like a character menu.
                 <div class="rva-team" role="group" aria-label="Rathinam AI Team" data-i18n-label="teamTitle">
                     @foreach ($voiceAssistant['personas'] as $key => $persona)
                         <button type="button" class="rva-member" data-persona="{{ $key }}" aria-pressed="false">
@@ -75,10 +80,22 @@
                     @endforeach
                 </div>
 
+                --}}
+                {{-- THIS IS NEW CODE — show Priya as the single assistant and start the welcome flow when she is tapped. --}}
+                <div class="rva-team" role="group" aria-label="Rathinam AI Assistant">
+                    <button type="button" class="rva-member" data-persona="admissions" aria-pressed="true" aria-label="Start a voice conversation with Priya">
+                        <span class="rva-member__photo"><img src="{{ $voiceAssistant['personas']['admissions']['image'] }}" alt="" width="240" height="240" loading="lazy" decoding="async"></span>
+                        <span class="rva-member__name" data-persona-name>{{ $voiceAssistant['personas']['admissions']['name']['en'] }}</span>
+                        <span class="rva-member__role" data-persona-role>{{ $voiceAssistant['personas']['admissions']['role']['en'] }}</span>
+                    </button>
+                </div>
+
+                {{-- OLD CODE — NOT USED NOW: a second “Let’s Talk” action was redundant after tapping Priya.
                 <button type="button" class="rva-talk" data-rva="start-voice">
                     <span class="rva-talk__logo" aria-hidden="true">R</span>
                     <span data-i18n="letsTalk">Let’s Talk</span>
                 </button>
+                --}}
 
                 <div class="rva-notice">
                     <p data-i18n="micNotice">Voice needs microphone permission. Your browser will ask only after you press “Let’s Talk”.</p>
@@ -137,3 +154,8 @@
 </div>
 <script type="application/json" id="rva-personas">@json($voiceAssistant['personas'])</script>
 <script src="{{ versioned_asset('js/voice-assistant.js') }}" defer></script>
+@if(config('assistant.gemini_live.native_enabled', true))
+<script src="{{ asset('js/gemini-live-native.js') }}?v={{ filemtime(public_path('js/gemini-live-native.js')) }}" defer></script>
+@else
+<script src="{{ versioned_asset('js/gemini-live.js') }}" defer></script>
+@endif

@@ -11,15 +11,28 @@ return [
             'ta' => 'பிரியா',
         ],
         'role' => [
-            'en' => 'Admissions Counsellor',
-            'ta' => 'சேர்க்கை ஆலோசகர்',
+            // OLD CODE — NOT USED NOW: the persona's admissions-only role label was still visible in Priya's header.
+            // 'en' => 'Admissions Counsellor',
+            // 'ta' => 'சேர்க்கை ஆலோசகர்',
+            // THIS IS NEW CODE — present Priya as the general Rathinam assistant. Reason: the screenshot showed the stale role label although it was never sent into answer generation.
+            'en' => 'Rathinam AI Assistant',
+            'ta' => 'ரத்தினம் AI உதவியாளர்',
         ],
         'voice' => 'female',
         'image' => 'images/voice-assistant/admissions.svg',
-        'focus' => 'admissions: eligibility, how to apply, important steps and who to contact',
+        // OLD CODE — NOT USED NOW: this admissions-only focus is not passed to the assistant and no longer describes Priya's role.
+        // 'focus' => 'admissions: eligibility, how to apply, important steps and who to contact',
+        // THIS IS NEW CODE — document Priya's app-wide help role. Reason: retained persona metadata should agree with the renamed UI label.
+        'focus' => 'Rathinam Global University: admissions, academic programmes, campus life and student support',
         'greeting' => [
-            'en' => 'Hi, I’m Priya, your admissions counsellor. What would you like to know about joining Rathinam?',
-            'ta' => 'வணக்கம், நான் பிரியா, உங்கள் சேர்க்கை ஆலோசகர். ரத்தினத்தில் சேருவது பற்றி என்ன தெரிந்துகொள்ள விரும்புகிறீர்கள்?',
+            // OLD CODE — NOT USED NOW: this admissions-only greeting did not match the requested Rathinam AI welcome.
+            // 'en' => 'Hi, I’m Priya, your admissions counsellor. What would you like to know about joining Rathinam?',
+            // THIS IS NEW CODE — replace Priya's obsolete persona greeting. Reason: the requested opening is a Rathinam AI greeting, not an admissions pitch.
+            'en' => 'Welcome to Rathinam AI. What information do you need?',
+            // OLD CODE — NOT USED NOW: the Tamil greeting also introduced Priya as an admissions counsellor.
+            // 'ta' => 'வணக்கம், நான் பிரியா, உங்கள் சேர்க்கை ஆலோசகர். ரத்தினத்தில் சேருவது பற்றி என்ன தெரிந்துகொள்ள விரும்புகிறீர்கள்?',
+            // THIS IS NEW CODE — give the active Tamil greeting the same general Rathinam AI purpose. Reason: language switching must not restore the retired counselor greeting.
+            'ta' => 'ரத்தினம் AI-க்கு வரவேற்கிறோம். உங்களுக்கு என்ன தகவல் தேவை?',
         ],
         'suggestions' => [
             'en' => [

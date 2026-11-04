@@ -52,6 +52,8 @@ class TextNormalizer
         'the', 'is', 'are', 'a', 'an', 'of', 'in', 'on', 'at', 'to', 'for', 'and', 'or', 'what', 'about', 'tell', 'me', 'please',
         'there', 'any', 'do', 'does', 'can', 'i', 'you', 'your', 'my', 'how', 'which', 'who', 'with', 'be', 'it', 'this', 'that',
         'college', 'university', 'rathinam', 'rgu', 'enna', 'irukku', 'iruku', 'irukka', 'iruka', 'ah', 'aa', 'la', 'ku', 'kku',
+        // THIS IS NEW CODE — ignore common Tanglish connective/filler words. Reason: keep specific-subject relevance checks focused on actual programme names and facts.
+        'pathi', 'konjam',
         'ungal', 'unga', 'enga', 'nanga', 'sollunga', 'solunga', 'pannunga', 'venum', 'vendum', 'theriyuma', 'illa', 'ennanu',
         'என்ன', 'உள்ளது', 'இருக்கு', 'உங்கள்', 'உங்க', 'கல்லூரி', 'பற்றி', 'சொல்லுங்கள்', 'சொல்லுங்க', 'தயவுசெய்து', 'ரத்தினம்',
     ];

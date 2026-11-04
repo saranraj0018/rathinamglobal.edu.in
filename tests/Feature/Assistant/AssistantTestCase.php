@@ -7,6 +7,7 @@ use App\Models\FaqCategory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 abstract class AssistantTestCase extends TestCase
@@ -17,8 +18,17 @@ abstract class AssistantTestCase extends TestCase
     {
         parent::setUp();
 
+        // THIS IS NEW CODE — send a real test-session CSRF token for web routes. Reason: Laravel now correctly rejects JSON POSTs without CSRF, and tests must exercise the protected route rather than bypassing production middleware.
+        $csrfToken = Str::random(40);
+        $this->withSession(['_token' => $csrfToken])->withHeader('X-CSRF-TOKEN', $csrfToken);
+
         config([
+            // THIS IS NEW CODE — keep legacy retrieval behavior explicit in existing feature tests. Reason: production defaults to the temporary API-key diagnostic switch.
+            'assistant.diagnostic_mode' => false,
             'assistant.gemini.key' => 'test-key',
+            // THIS IS NEW CODE — keep ordinary feature tests offline; retrieval tests opt in explicitly. Reason: avoid live-site traffic.
+            'assistant.official_website.enabled' => false,
+            'assistant.temporary_knowledge_mode' => false,
             'assistant.gemini.model' => 'test-model',
             'assistant.gemini.retry_delay_ms' => 0,
             'assistant.google.api_key' => 'google-test-key',

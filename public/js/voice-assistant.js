@@ -1,21 +1,16 @@
 /*
  * Website voice assistant (resources/views/components/voice-assistant.blade.php).
  *
- * Voice in:  Web Speech API SpeechRecognition (en-IN / ta-IN), started only
- *            when the visitor presses the mic button.
- * Voice out: speechSynthesis with a voice matching the chosen language. When the browser
- *            has no voice for it (Tamil on most desktops) and data-speech-endpoint is
- *            set, the reply is read by the server's text-to-speech instead.
+ * Voice chat: Web Speech API input and browser/server speech output.
  * Apply:     a reply with a `redirect` (the visitor asked to apply) is spoken, then the
  *            tab goes to that admissions page.
  * Answers:   POST to the Laravel endpoint in data-endpoint (CSRF protected).
  * AI team:   the panel opens on a choice of personas (#rva-personas JSON); each has
  *            its own greeting and a female or male voice, and is
  *            sent with every question so the answer comes "from" them.
- * Voice call: "Let's Talk" starts a call with the chosen persona — the team stays on
- *            screen with a call timer, a mic mute button and "End Call". After each
- *            spoken answer the assistant listens again until the call is ended, the
- *            panel is closed or the visitor stays silent for about a minute.
+ * Voice call: "Let's Talk" starts Gemini Live transcription and RAG answer speech with
+ *            the chosen persona. The team stays on screen with a timer, mic mute and
+ *            "End Call" controls.
  * Voice only: questions are spoken, never typed or picked from a list. "Let's Talk"
  *            asks for the microphone straight away (the browser's permission
  *            popup), plays a short connect tone, then the persona greets the
@@ -54,7 +49,10 @@
     usesAi: root.dataset.usesAi === "1",
     provider: root.dataset.provider || "",
     maxLength: parseInt(root.dataset.maxLength, 10) || 500,
-    requestTimeout: 30000,
+    // OLD CODE — NOT USED NOW: 30 seconds exceeded the visible response deadline after repeated backend retries.
+    // requestTimeout: 30000,
+    // THIS IS NEW CODE — leave enough time to render a verified fallback, while backend retries now remain well below this limit.
+    requestTimeout: 27000,
     listenTimeout: 15000,
     relistenDelay: 450,
     /* Rounds of silence (each up to listenTimeout) before a call mutes the mic. */
@@ -76,18 +74,23 @@
   const TEXT = {
     en: {
       launcher: "Ask RGU",
-      title: "Rathinam Assistant",
+      // THIS IS NEW CODE — use Priya's name in the widget header. Reason: the assistant should present as a voice companion rather than a generic site bot.
+      title: "Priya",
       language: "Language",
       mute: "Mute voice replies",
       unmute: "Turn voice replies on",
       close: "Close assistant",
-      statusIdle: "Ask about admissions, programmes and campus",
+      statusIdle: "Ready when you are",
+      // THIS IS NEW CODE — label connection and interruption states in the compact voice header. Reason: keep status copy aligned with Live lifecycle events.
+      statusConnecting: "Connecting…",
       statusListening: "Listening… speak now",
-      statusProcessing: "Finding the answer…",
+      statusProcessing: "Thinking…",
       statusSpeaking: "Speaking…",
-      statusError: "Something went wrong",
-      teamTitle: "Rathinam AI Team",
-      teamText: "Choose who you’d like to talk to.",
+      statusInterrupted: "Interrupted",
+      statusError: "Connection error",
+      // THIS IS NEW CODE — present Priya as the one assistant and tell visitors to tap her to begin.
+      teamTitle: "Meet Priya",
+      teamText: "Tap Priya to start. She can help in English or Tamil.",
       letsTalk: "Let’s Talk",
       endCall: "End Call",
       callTimer: "Call duration",
@@ -98,11 +101,12 @@
       stillThere: "Are you still there? Tap the mic to keep talking.",
       openNow: "Open now",
       changePersona: "Choose someone else",
-      micNotice: "Voice needs microphone permission. Your browser will ask only after you press “Let’s Talk”. Answers come only from approved Rathinam Global University information.",
+      // THIS IS NEW CODE — match the single-action Priya welcome flow and automatic language detection.
+      micNotice: "Tap Priya to begin. After her welcome, your browser will ask for microphone permission. Answers use approved Rathinam Global University information.",
       privacyTitle: "How your voice and questions are handled",
-      privacy1: "Your browser turns speech into text. In Chrome, Edge and Safari this uses the browser maker’s online speech service.",
-      privacy2: "We never record or store audio. Only the text of your question is sent to our server.",
-      privacy3: (p) => `To write an answer, your question text is sent to our AI provider${p ? ` (${p})` : ""}.`,
+      privacy1: "During a voice call, your microphone audio streams to Google Gemini Live, which transcribes your speech.",
+      privacy2: "The transcript of your question is sent to our server to look up an approved Rathinam answer.",
+      privacy3: (p) => `To prepare and speak the answer, your question and approved answer text are sent to our AI provider${p ? ` (${p})` : ""}.`,
       privacy4: "The last few messages are kept for 30 minutes so follow-up questions make sense, then deleted.",
       privacy5: "Please do not share personal details such as phone numbers or addresses.",
       allowMic: "Allow the microphone to start the call…",
@@ -139,18 +143,23 @@
     },
     ta: {
       launcher: "RGU-விடம் கேளுங்கள்",
-      title: "ரத்தினம் உதவியாளர்",
+      // THIS IS NEW CODE — localize Priya's name in the same compact header.
+      title: "பிரியா",
       language: "மொழி",
       mute: "குரல் பதில்களை நிறுத்து",
       unmute: "குரல் பதில்களை இயக்கு",
       close: "உதவியாளரை மூடு",
-      statusIdle: "சேர்க்கை, படிப்புகள், வளாகம் பற்றி கேளுங்கள்",
+      statusIdle: "தொடங்கத் தயார்",
+      // THIS IS NEW CODE — provide Tamil copy for the same Live lifecycle states.
+      statusConnecting: "இணைக்கிறது…",
       statusListening: "கேட்டுக்கொண்டிருக்கிறேன்… இப்போது பேசுங்கள்",
-      statusProcessing: "பதிலைத் தேடுகிறேன்…",
+      statusProcessing: "சிந்திக்கிறேன்…",
       statusSpeaking: "பேசுகிறேன்…",
-      statusError: "ஏதோ தவறு நடந்தது",
-      teamTitle: "ரத்தினம் AI குழு",
-      teamText: "யாரிடம் பேச விரும்புகிறீர்கள் என்று தேர்ந்தெடுங்கள்.",
+      statusInterrupted: "இடைநிறுத்தப்பட்டது",
+      statusError: "இணைப்புப் பிழை",
+      // THIS IS NEW CODE — keep the simplified welcome view clear in Tamil too.
+      teamTitle: "பிரியாவைச் சந்திக்கவும்",
+      teamText: "தொடங்க பிரியாவைத் தட்டுங்கள். அவர் தமிழ் அல்லது ஆங்கிலத்தில் உதவுவார்.",
       letsTalk: "பேசலாம்",
       endCall: "அழைப்பை முடி",
       callTimer: "அழைப்பு நேரம்",
@@ -161,11 +170,12 @@
       stillThere: "நீங்கள் இன்னும் இருக்கிறீர்களா? தொடர்ந்து பேச மைக்கைத் தட்டுங்கள்.",
       openNow: "இப்போது திற",
       changePersona: "வேறொருவரைத் தேர்ந்தெடு",
-      micNotice: "குரல் வசதிக்கு மைக்ரோஃபோன் அனுமதி தேவை. “பேசலாம்” அழுத்திய பின்னரே உலாவி அனுமதி கேட்கும். பதில்கள் ரத்தினம் குளோபல் பல்கலைக்கழகத்தின் அங்கீகரிக்கப்பட்ட தகவல்களிலிருந்து மட்டுமே வரும்.",
+      // THIS IS NEW CODE — use the same simple Priya-first instruction in Tamil.
+      micNotice: "தொடங்க பிரியாவைத் தட்டுங்கள். அவரது வரவேற்புக்குப் பிறகு மைக்ரோஃபோன் அனுமதியை உலாவி கேட்கும். பதில்கள் ரத்தினம் குளோபல் பல்கலைக்கழகத்தின் அங்கீகரிக்கப்பட்ட தகவல்களைப் பயன்படுத்தும்.",
       privacyTitle: "உங்கள் குரலும் கேள்விகளும் எவ்வாறு கையாளப்படுகின்றன",
-      privacy1: "உங்கள் உலாவி பேச்சை எழுத்தாக மாற்றுகிறது. Chrome, Edge, Safari ஆகியவற்றில் இது உலாவி நிறுவனத்தின் இணையப் பேச்சுச் சேவையைப் பயன்படுத்துகிறது.",
-      privacy2: "நாங்கள் ஒலியைப் பதிவு செய்வதோ சேமிப்பதோ இல்லை. உங்கள் கேள்வியின் எழுத்து மட்டுமே எங்கள் சர்வருக்கு அனுப்பப்படுகிறது.",
-      privacy3: (p) => `பதிலை உருவாக்க, உங்கள் கேள்வியின் எழுத்து எங்கள் AI சேவை வழங்குநருக்கு${p ? ` (${p})` : ""} அனுப்பப்படுகிறது.`,
+      privacy1: "குரல் அழைப்பின்போது, உங்கள் மைக்ரோஃபோன் ஒலி Google Gemini Live-க்கு அனுப்பப்பட்டு பேச்சு எழுத்தாக மாற்றப்படும்.",
+      privacy2: "அங்கீகரிக்கப்பட்ட ரத்தினம் பதிலைத் தேட, உங்கள் கேள்வியின் உரை எங்கள் சேவையகத்திற்கு அனுப்பப்படும்.",
+      privacy3: (p) => `பதிலைத் தயாரித்து பேச, உங்கள் கேள்வியும் அங்கீகரிக்கப்பட்ட பதில் உரையும் எங்கள் AI சேவை வழங்குநருக்கு${p ? ` (${p})` : ""} அனுப்பப்படும்.`,
       privacy4: "தொடர் கேள்விகள் புரிய, கடைசி சில செய்திகள் 30 நிமிடங்கள் மட்டும் வைக்கப்பட்டு பின்னர் நீக்கப்படும்.",
       privacy5: "தொலைபேசி எண், முகவரி போன்ற தனிப்பட்ட விவரங்களைப் பகிர வேண்டாம்.",
       allowMic: "அழைப்பைத் தொடங்க மைக்ரோஃபோனை அனுமதியுங்கள்…",
@@ -232,12 +242,28 @@
     silentRounds: 0,
     callStartedAt: 0,
     callTimer: null,
+    callAttempt: 0,
+    lastLiveTranscript: "",
+    // THIS IS NEW CODE — track which Live transport owns this call. Reason: native speech must not fall through into the old transcript-to-Flash path.
+    nativeCall: false,
   };
 
   const t = (key, ...args) => {
     const value = TEXT[state.lang][key] ?? TEXT.en[key];
     return typeof value === "function" ? value(...args) : value;
   };
+
+  function safeDiagnosticText(value) {
+    return String(value || "")
+      .replace(/(access_token=)[^&\s)]+/gi, "$1[redacted]")
+      .replace(/(Bearer\s+)[^\s,;]+/gi, "$1[redacted]")
+      .replace(/AIza[0-9A-Za-z_-]{20,}/g, "[redacted-api-key]")
+      .replace(/((?:api[_-]?key|token)\s*[:=]\s*)[^\s,;]+/gi, "$1[redacted]")
+      .slice(0, 1200);
+  }
+
+  // THIS IS NEW CODE — route shared call controls to the selected Live transport. Reason: keep mute, playback and cleanup behavior consistent across native mode and rollback mode.
+  const liveClient = () => state.nativeCall ? window.GeminiLiveNative : window.GeminiLive;
 
   /** A persona's text in the current language, falling back to English. */
   const personaText = (key, field) => {
@@ -247,14 +273,18 @@
 
   /* ---------------------------------------------------------------- UI state */
 
-  const STATUS_TEXT = { idle: "statusIdle", listening: "statusListening", processing: "statusProcessing", speaking: "statusSpeaking", error: "statusError" };
+  // THIS IS NEW CODE — map every visible Live status to localized header text. Reason: connecting and interrupted states previously had no readable label.
+  const STATUS_TEXT = { idle: "statusIdle", connecting: "statusConnecting", listening: "statusListening", processing: "statusProcessing", speaking: "statusSpeaking", interrupted: "statusInterrupted", error: "statusError" };
 
   function setStatus(status) {
     state.status = status;
     el.panel.dataset.state = status;
     // When idle in a conversation, the status line names the persona's role instead.
     const showRole = status === "idle" && state.view === "chat" && state.persona;
-    if (state.view === "call" && status === "idle") {
+    if (state.view === "call" && state.micMuted && status === "listening") {
+      // THIS IS NEW CODE — show the paused microphone state without changing its existing mute/resume behavior. Reason: the header must not say “Listening” while the call mic is muted.
+      el.status.textContent = t("micMuted");
+    } else if (state.view === "call" && status === "idle") {
       el.status.textContent = state.micMuted ? t("micMuted") : t("callWith", personaText(state.persona, "name"));
     } else {
       el.status.textContent = showRole ? personaText(state.persona, "role") : t(STATUS_TEXT[status]);
@@ -292,6 +322,14 @@
 
   /** Called when an answer has been spoken (or could not be): listen for the next question. */
   function continueConversation() {
+    if (state.view === "call") {
+      if (!state.micMuted) {
+        state.lastLiveTranscript = "";
+        liveClient()?.resumeMicrophone();
+        setStatus("listening");
+      }
+      return;
+    }
     window.clearTimeout(state.relistenTimer);
     if (!state.handsFree) return;
     // Short pause so the microphone doesn't pick up the tail of the spoken answer.
@@ -320,7 +358,8 @@
     });
 
     const inChat = state.view === "chat" && state.persona;
-    el.title.textContent = inChat ? personaText(state.persona, "name") : t(state.view === "call" ? "teamTitle" : "title");
+    // THIS IS NEW CODE — keep Priya's name in the compact call header. Reason: the call view should identify the assistant instead of showing a team heading.
+    el.title.textContent = inChat || (state.view === "call" && state.persona) ? personaText(state.persona, "name") : t("title");
     if (state.persona) el.headAvatar.src = PERSONAS[state.persona].image;
 
     setStatus(state.status);
@@ -350,6 +389,7 @@
   }
 
   function showTeam() {
+    if (state.view === "call") endCall();
     state.handsFree = false;
     window.clearTimeout(state.relistenTimer);
     stopListening(true);
@@ -368,6 +408,7 @@
 
   /** "Let's Talk": a voice call with the chosen persona; without speech recognition it falls back to the text chat. */
   function letsTalk() {
+    window.GeminiLiveNative?.unlockAudio?.();
     if (state.view === "call") return;
     if (!voiceSupported) {
       const isNewConversation = state.greeted !== state.persona;
@@ -407,6 +448,10 @@
   }
 
   async function startCall() {
+    window.GeminiLiveNative?.unlockAudio?.();
+    const attempt = ++state.callAttempt;
+    state.lastLiveTranscript = "";
+    state.nativeCall = false;
     joinPersonaConversation();
     state.micMuted = false;
     state.silentRounds = 0;
@@ -424,22 +469,113 @@
     state.player = state.player || new Audio();
     el.status.textContent = t("allowMic");
 
-    const micError = await requestMicrophone();
-    if (state.view !== "call") return;
-    if (micError) { setMicMuted(true, t(micError)); return; }
+    if (!window.GeminiLive && !window.GeminiLiveNative) {
+      // THIS IS NEW CODE — keep the existing Google TTS and browser recognition flow when the Live script fails to load.
+      state.handsFree = true;
+      state.greeted = null;
+      setView("chat");
+      showChat();
+      speak(personaText(state.persona, "greeting"), state.lang, listen);
+      return;
+    }
+    try {
+      // THIS IS NEW CODE — show the real connection phase before Live becomes ready. Reason: the header should describe connection progress accurately.
+      setStatus("connecting");
+      // Use native Gemini Live audio with the model-only conversational policy.
+      if (root.dataset.nativeLive === "1" && window.GeminiLiveNative) {
+        try {
+          await window.GeminiLiveNative.connect({
+            csrf: config.csrf,
+            requestUrl: "/api/gemini-live/native-token",
+          });
+          state.nativeCall = true;
+        } catch (nativeError) {
+          console.warn("[Voice Assistant] Native Live setup failed.", {
+            requestId: window.GeminiLiveNative?.diagnosticSessionId || null,
+            errorName: nativeError?.name || "Error",
+            errorMessage: safeDiagnosticText(nativeError?.message || "Native Live setup failed."),
+            errorStack: safeDiagnosticText(nativeError?.stack || ""),
+          });
+          window.GeminiLiveNative?.disconnect();
+          throw nativeError;
+        }
+      } else {
+        await window.GeminiLive.connect();
+      }
+      const client = liveClient();
+      if (attempt !== state.callAttempt || state.view !== "call") {
+        client?.disconnect();
+        return;
+      }
+
+      // THIS IS NEW CODE — play the requested welcome before asking for or streaming microphone audio.
+      const welcome = state.lang === "ta"
+        ? "ரத்தினம் AI உதவியாளருக்கு வரவேற்கிறோம். உங்களுக்கு என்ன தகவல் வேண்டும்?"
+        // OLD CODE — NOT USED NOW: Live startup used a different outdated welcome string.
+        // : "Welcome to Rathinam AI Assistant. What information do you want?";
+        // THIS IS NEW CODE — use the requested Live welcome. Reason: the Live path had a separate outdated hard-coded phrase.
+        : "Welcome to Rathinam AI. What information do you need?";
+      el.caption.textContent = welcome;
+      setStatus("speaking");
+      await new Promise((resolve, reject) => {
+        const timeout = window.setTimeout(() => {
+          console.info("[Voice Assistant] Welcome speech completed or passed; ready for microphone.");
+          resolve();
+        }, 4000);
+        try {
+          const onDone = () => {
+            window.clearTimeout(timeout);
+            resolve();
+          };
+          if (state.nativeCall) window.GeminiLiveNative.sayWelcome(welcome, onDone);
+          else window.GeminiLive.speak(welcome, onDone);
+        } catch (error) {
+          window.clearTimeout(timeout);
+          resolve();
+        }
+      });
+      if (attempt !== state.callAttempt || state.view !== "call") {
+        client?.disconnect();
+        return;
+      }
+
+      const micError = await requestMicrophone();
+      if (state.view !== "call") return;
+      if (micError) {
+        client?.disconnect();
+        setMicMuted(true, t(micError));
+        return;
+      }
+      await client.startMicrophone();
+    } catch (error) {
+      console.error("[Voice Assistant] Gemini Live call startup failed:", {
+        requestId: window.GeminiLiveNative?.diagnosticSessionId || null,
+        errorName: error?.name || "Error",
+        errorMessage: safeDiagnosticText(error?.message || "Gemini Live startup failed."),
+        errorStack: safeDiagnosticText(error?.stack || ""),
+      });
+      liveClient()?.disconnect();
+      if (attempt === state.callAttempt && state.view === "call") {
+        // THIS IS NEW CODE — preserve the existing Google TTS and browser recognition fallback if Live cannot start.
+        state.handsFree = true;
+        state.greeted = null;
+        setView("chat");
+        showChat();
+        speak(personaText(state.persona, "greeting"), state.lang, listen);
+      }
+      return;
+    }
 
     state.handsFree = true;
     startCallTimer();
     playTone("start");
-    window.setTimeout(() => {
-      if (state.view === "call") speak(personaText(state.persona, "greeting"), state.lang, continueConversation);
-    }, 400);
+    setStatus("listening");
   }
 
   /**
-   * Opens the browser's microphone permission popup right away (SpeechRecognition would
-   * only ask once it starts listening). The stream is released at once: recognition
-   * opens its own. Resolves to an error text key, or null when the microphone is allowed.
+   * Opens the browser's microphone permission popup from the call button. Releases this
+   * permission-check stream; Gemini Live opens the call's audio stream after connecting.
+   * Resolves to an error text key, or null when microphone access is allowed.
    */
   async function requestMicrophone() {
     if (!navigator.mediaDevices?.getUserMedia) return null;
@@ -460,7 +596,8 @@
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (!AudioContext) return;
-      state.audio = state.audio || new AudioContext();
+      state.audio = window.GeminiLiveNative?.unlockAudio?.() || window.GeminiLive?.unlockAudio?.()
+        || (state.audio && state.audio.state !== "closed" ? state.audio : new AudioContext());
       const context = state.audio;
       context.resume?.();
       if (kind === "prime") return;
@@ -484,6 +621,7 @@
 
   function endCall() {
     if (state.view !== "call") return;
+    state.callAttempt += 1;
     playTone("end");
     state.handsFree = false;
     state.micMuted = false;
@@ -491,9 +629,20 @@
     window.clearInterval(state.callTimer);
     stopListening(true);
     stopSpeaking();
+    // THIS IS NEW CODE — revoke the short-lived server capability when native mode ends. Reason: prevent late retrieval calls from surviving hang-up.
+    window.GeminiLiveNative?.disconnect();
+    window.GeminiLive?.disconnect();
+    state.nativeCall = false;
+    el.transcript.textContent = "";
+    // THIS IS NEW CODE — clear server conversation linkage when the call ends. Reason: each voice call must start with a clean, current-call-only history.
+    state.conversationId = null;
+    state.greeted = null;
+    state.lastLiveTranscript = "";
     cancelConfirm();
     el.callNote.textContent = "";
     setView("intro");
+    // THIS IS NEW CODE — reset the status after stopping the call. Reason: the intro view otherwise kept showing a stale “Listening” state.
+    setStatus("idle");
   }
 
   /** Mutes or unmutes the visitor's microphone; replies are still spoken while muted. */
@@ -505,9 +654,12 @@
     if (muted) {
       window.clearTimeout(state.relistenTimer);
       stopListening(true);
+      liveClient()?.pauseMicrophone();
     } else {
+      liveClient()?.resumeMicrophone();
       if (!state.callStartedAt) startCallTimer();
-      if (state.status !== "speaking") listen();
+      if (state.view === "call") setStatus("listening");
+      else if (state.status !== "speaking") listen();
     }
     setStatus(state.status);
   }
@@ -522,14 +674,15 @@
     choosePersona(key);
     joinPersonaConversation();
     el.callNote.textContent = "";
-    speak(personaText(state.persona, "greeting"), state.lang, continueConversation);
+    setStatus("listening");
   }
 
   function openPanel() {
     el.panel.hidden = false;
     el.launcher.setAttribute("aria-expanded", "true");
     if (state.view === "call") { el.endCall.focus(); return; }
-    (state.view === "intro" ? (el.members.find((member) => member.dataset.persona === state.persona) || el.startVoice) : el.mic).focus();
+    // THIS IS NEW CODE — Priya is the only intro action now, so focus her card when the panel opens.
+    (state.view === "intro" ? el.members.find((member) => member.dataset.persona === state.persona) : el.mic).focus();
   }
 
   function closePanel() {
@@ -615,6 +768,7 @@
     if (state.view === "call") {
       el.callNote.textContent = text;
       setStatus("error");
+      if (!state.micMuted) liveClient()?.resumeMicrophone();
       continueConversation();
       return;
     }
@@ -657,30 +811,40 @@
 
     if (!navigator.onLine) { showError(t("offline"), () => submit(text, { confirmed: true })); return; }
 
+    if (state.view === "call") liveClient()?.pauseMicrophone();
     stopSpeaking();
     setBusy(true);
     addMessage("user", text);
     const typing = addTyping();
     setStatus("processing");
-    const lang = state.lang;
+    // THIS IS NEW CODE — voice callers use automatic language detection instead of the removed language selector.
+    const lang = state.view === "call" ? "auto" : state.lang;
 
     const controller = new AbortController();
+    // THIS IS NEW CODE — match the browser lifecycle to safe Laravel diagnostics without recording question text.
+    const diagnosticRequestId = crypto.randomUUID();
+    const diagnosticStartedAt = performance.now();
+    console.info("[RVA diagnostics] request_started", { requestId: diagnosticRequestId, elapsedMs: 0 });
     const timer = window.setTimeout(() => controller.abort(), config.requestTimeout);
     const retry = () => submit(text, { confirmed: true });
 
     try {
       const response = await fetch(config.endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json", "X-CSRF-TOKEN": config.csrf, "X-Requested-With": "XMLHttpRequest" },
+        headers: { "Content-Type": "application/json", Accept: "application/json", "X-CSRF-TOKEN": config.csrf, "X-Requested-With": "XMLHttpRequest", "X-Assistant-Request-Id": diagnosticRequestId },
         credentials: "same-origin",
         body: JSON.stringify({ message: text, language: lang, conversation_id: state.conversationId, persona: state.persona }),
         signal: controller.signal,
       });
+      // THIS IS NEW CODE — log only request ID, duration and HTTP status; reason: correlate browser and Laravel without exposing content.
+      console.info("[RVA diagnostics] response_headers", { requestId: diagnosticRequestId, elapsedMs: Math.round(performance.now() - diagnosticStartedAt), httpStatus: response.status });
       const data = await response.json().catch(() => ({}));
+      // THIS IS NEW CODE — report whether an answer was returned without recording the answer body.
+      console.info("[RVA diagnostics] response_parsed", { requestId: diagnosticRequestId, elapsedMs: Math.round(performance.now() - diagnosticStartedAt), hasAnswer: typeof data.answer === "string" && data.answer.length > 0 });
       typing.remove();
       if (state.view === "intro") return;
 
-      if (response.ok && data.success) {
+      if (response.ok && data.success && typeof data.answer === "string" && data.answer.trim()) {
         state.conversationId = data.conversation_id;
         const redirect = safeRedirect(data.redirect);
         const sources = redirect ? [...(data.sources || []), { title: redirect.label, url: redirect.url }] : data.sources;
@@ -688,7 +852,17 @@
         setStatus("idle");
         el.callNote.textContent = "";
         showCaption(data.answer, redirect);
-        if (!el.panel.hidden) speak(data.answer, data.language || lang, redirect ? () => openRedirect(redirect) : continueConversation);
+        if (!el.panel.hidden) {
+          const done = redirect ? () => openRedirect(redirect) : continueConversation;
+          if (state.view === "call" && !state.nativeCall && window.GeminiLive?.status() === "connected") {
+            if (state.muted) { if (!state.micMuted) liveClient()?.resumeMicrophone(); done(); }
+            else {
+              setStatus("speaking");
+              try { window.GeminiLive.speak(data.answer, () => { console.info("[RVA diagnostics] answer_audio_complete", { requestId: diagnosticRequestId, elapsedMs: Math.round(performance.now() - diagnosticStartedAt) }); if (!state.micMuted) liveClient()?.resumeMicrophone(); done(); }); }
+              catch { if (!state.micMuted) liveClient()?.resumeMicrophone(); speak(data.answer, data.language || lang, done); }
+            }
+          } else speak(data.answer, data.language || lang, done);
+        }
         return;
       }
 
@@ -696,6 +870,8 @@
       else if ([409, 422, 429].includes(response.status) && data.message) showError(data.message, response.status === 422 ? undefined : retry);
       else showError(t("server"), retry);
     } catch (error) {
+      // THIS IS NEW CODE — report only failure class and elapsed time; never include the transcript or audio.
+      console.warn("[RVA diagnostics] request_failed", { requestId: diagnosticRequestId, elapsedMs: Math.round(performance.now() - diagnosticStartedAt), failureType: error?.name || "Error" });
       typing.remove();
       if (state.view === "intro") return;
       showError(t(error.name === "AbortError" ? "timeout" : "network"), retry);
@@ -717,6 +893,66 @@
     link.textContent = `${t("openNow")}: ${redirect.label}`;
     el.caption.append(" ", link);
   }
+
+  window.addEventListener("gemini-live-interim-transcript", (event) => {
+    if (state.view === "call" && !state.micMuted) {
+      const text = event.detail?.text || "";
+      if (text && text !== state.lastLiveTranscript) state.lastLiveTranscript = "";
+      el.transcript.textContent = text;
+    }
+  });
+  window.addEventListener("gemini-live-user-transcript", (event) => {
+    if (state.view !== "call" || state.micMuted) return;
+    const text = String(event.detail?.text || "").trim();
+    if (!text || text === state.lastLiveTranscript) return;
+    state.lastLiveTranscript = text;
+    el.transcript.textContent = text;
+    state.silentRounds = 0;
+    if (state.nativeCall) return;
+    window.GeminiLive?.pauseMicrophone();
+    submit(text);
+  });
+  // THIS IS NEW CODE — display native transcription without submitting it to the legacy chat endpoint. Reason: Gemini Live itself now understands audio and must produce the response.
+  window.addEventListener("gemini-live-native-transcript", (event) => {
+    if (state.view === "call" && state.nativeCall && !state.micMuted) el.transcript.textContent = String(event.detail?.text || "");
+  });
+  // THIS IS NEW CODE — stream native Priya captions live to the UI so the user sees her spoken reply.
+  window.addEventListener("gemini-live-native-caption", (event) => {
+    if (state.view === "call" && state.nativeCall) {
+      const text = String(event.detail?.text || "").trim();
+      if (text) el.caption.textContent = text;
+    }
+  });
+  // THIS IS NEW CODE — map native interaction lifecycle and playback events onto the existing call status. Reason: intermediate turnComplete must not reactivate the mic before final IDLE and playback completion.
+  window.addEventListener("gemini-live-native-status", (event) => {
+    if (state.view !== "call" || !state.nativeCall) return;
+    const status = event.detail?.state;
+    if (status === "thinking") setStatus("processing");
+    else if (status === "speaking") setStatus("speaking");
+    else if (status === "listening") setStatus(state.micMuted ? "idle" : "listening");
+  });
+  // THIS IS NEW CODE — surface Live VAD interruptions immediately. Reason: drop queued assistant audio and allow the incoming speech to take priority.
+  window.addEventListener("gemini-live-native-interrupted", () => {
+    if (state.view === "call" && state.nativeCall) {
+      el.caption.textContent = "";
+      el.transcript.textContent = "";
+      setStatus("interrupted");
+      window.setTimeout(() => {
+        if (state.view === "call" && !state.micMuted) setStatus("listening");
+      }, 250);
+    }
+  });
+  window.addEventListener("gemini-live-native-error", (event) => {
+    if (state.view !== "call") return;
+    console.error("[Voice Assistant] Gemini Live Native error:", event.detail?.message || "unknown reason");
+    setMicMuted(true, t("speechGeneric"));
+    setStatus("idle");
+  });
+  window.addEventListener("gemini-live-connection-error", (event) => {
+    if (state.view !== "call" || state.micMuted) return;
+    console.error("[Voice Assistant] Gemini Live connection ended:", event.detail?.message || "unknown reason");
+    setMicMuted(true, t("speechGeneric"));
+  });
 
   /** Only https links from the server's list are followed. */
   function safeRedirect(redirect) {
@@ -968,6 +1204,7 @@
 
   function stopSpeaking() {
     state.speakToken += 1;
+    if (state.view === "call") liveClient()?.stopPlayback();
     if (synth && (synth.speaking || synth.pending)) synth.cancel();
     if (state.player && !state.player.paused) state.player.pause();
     el.stop.hidden = true;
@@ -1006,14 +1243,22 @@
     applyLanguage();
   });
 
+  // THIS IS NEW CODE — tapping Priya directly starts the welcome and voice call in one action.
   el.members.forEach((member) => member.addEventListener("click", () => {
-    if (state.view === "call") switchCallPersona(member.dataset.persona); else choosePersona(member.dataset.persona);
+    window.GeminiLiveNative?.unlockAudio?.();
+    if (state.view === "call") return;
+    choosePersona(member.dataset.persona);
+    letsTalk();
   }));
-  // Double-clicking a team member is a shortcut for choosing them and pressing "Let's Talk".
-  el.members.forEach((member) => member.addEventListener("dblclick", () => { choosePersona(member.dataset.persona); letsTalk(); }));
-  el.startVoice.addEventListener("click", letsTalk);
+  // OLD CODE — NOT USED NOW: double-clicking a character to start was not discoverable.
+  // el.members.forEach((member) => member.addEventListener("dblclick", () => { choosePersona(member.dataset.persona); letsTalk(); }));
+  // OLD CODE — NOT USED NOW: the separate “Let’s Talk” button duplicated Priya’s new click action.
+  // el.startVoice.addEventListener("click", letsTalk);
   el.endCall.addEventListener("click", endCall);
-  el.callMic.addEventListener("click", () => setMicMuted(!state.micMuted));
+  el.callMic.addEventListener("click", () => {
+    if (state.micMuted && liveClient()?.status() !== "connected" && !state.nativeCall) startCall();
+    else setMicMuted(!state.micMuted);
+  });
   el.team.addEventListener("click", showTeam);
 
   el.mic.addEventListener("click", () => {
@@ -1024,7 +1269,11 @@
   // In a voice chat, "Stop speaking" interrupts the answer and goes straight to listening.
   el.stop.addEventListener("click", () => { stopSpeaking(); continueConversation(); });
   el.confirmSend.addEventListener("click", () => { if (state.pending) submit(state.pending, { confirmed: true }); });
-  el.confirmEdit.addEventListener("click", () => { cancelConfirm(); listen(); });
+  el.confirmEdit.addEventListener("click", () => {
+    cancelConfirm();
+    if (state.view === "call") { if (!state.micMuted) liveClient()?.resumeMicrophone(); setStatus("listening"); }
+    else listen();
+  });
 
   // Speech must not continue on a page the visitor has left.
   window.addEventListener("pagehide", () => { endCall(); state.handsFree = false; stopListening(true); stopSpeaking(); });
