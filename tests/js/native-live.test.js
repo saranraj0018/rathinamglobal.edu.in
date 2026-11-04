@@ -361,13 +361,9 @@ test("a server setup error rejects startup and closes the socket visibly", async
   assert.equal(socket.readyState, 3);
 });
 
-test("uses one Live initializer and cache-busting script tag when native mode is enabled", () => {
-  const nativeBranch = voiceSource.slice(
-    voiceSource.indexOf('if (root.dataset.nativeLive === "1"'),
-    voiceSource.indexOf("      } else {\n        await window.GeminiLive.connect();"),
-  );
-
+test("loads the native Live client as the only Live initializer", () => {
   assert.match(viewSource, /gemini-live-native\.js.*?\?v=/);
-  assert.match(nativeBranch, /throw nativeError/);
-  assert.doesNotMatch(nativeBranch, /GeminiLive\.connect\(/);
+  assert.doesNotMatch(viewSource, /gemini-live\.js/);
+  assert.doesNotMatch(voiceSource, /GeminiLive\.connect\(/);
+  assert.doesNotMatch(voiceSource, /nativeLive/);
 });

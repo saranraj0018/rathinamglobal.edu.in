@@ -58,13 +58,9 @@ return [
     // Separate Gemini Live configuration
     'gemini_live' => [
         'key' => env('GEMINI_LIVE_API_KEY'),
-        // THIS IS NEW CODE — select the native-audio Live path through configuration. Reason: keep the prior transcription/answer/TTS implementation available as a reversible fallback.
-        'native_enabled' => (bool) env('GEMINI_LIVE_NATIVE_ENABLED', true),
         // OLD CODE — NOT USED NOW: the default previously pointed at the standard Live model; set GEMINI_LIVE_MODEL=gemini-3.8-live to switch back.
         // THIS IS NEW CODE — default to the requested Extended Thinking Live model when the environment does not specify one. Reason: keep Laravel and the browser token on the intended Live model.
         'model' => env('GEMINI_LIVE_MODEL', 'gemini-3.8-live-extended-thinking'),
-        // THIS IS NEW CODE — use Google's dedicated Live transcription model for speech-to-text before verified server retrieval.
-        'transcription_model' => env('GEMINI_LIVE_TRANSCRIPTION_MODEL', 'gemini-3.5-transcribe-live'),
         // THIS IS NEW CODE — bound ephemeral-token provisioning to the same short upstream budget used by text generation.
         'token_timeout' => (int) env('GEMINI_LIVE_TOKEN_TIMEOUT', 8),
         'url' => 'https://generativelanguage.googleapis.com/v1beta',

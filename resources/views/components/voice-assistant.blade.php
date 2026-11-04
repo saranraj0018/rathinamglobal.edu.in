@@ -24,9 +24,7 @@
      data-csrf="{{ $voiceAssistant['csrfToken'] }}"
      data-uses-ai="{{ $voiceAssistant['usesAi'] ? '1' : '0' }}"
      data-provider="{{ $voiceAssistant['providerName'] }}"
-     data-max-length="{{ $voiceAssistant['maxLength'] }}"
-     {{-- THIS IS NEW CODE — expose the native Live feature flag to the browser. Reason: permit safe rollback to the existing transcription path without editing environment settings. --}}
-     data-native-live="{{ config('assistant.gemini_live.native_enabled', true) ? '1' : '0' }}">
+     data-max-length="{{ $voiceAssistant['maxLength'] }}">
 
     <button type="button" class="rva-launcher" aria-expanded="false" aria-controls="rva-panel" data-rva="launcher">
         <span class="rva-launcher__orb" aria-hidden="true">
@@ -154,8 +152,4 @@
 </div>
 <script type="application/json" id="rva-personas">@json($voiceAssistant['personas'])</script>
 <script src="{{ versioned_asset('js/voice-assistant.js') }}" defer></script>
-@if(config('assistant.gemini_live.native_enabled', true))
 <script src="{{ asset('js/gemini-live-native.js') }}?v={{ filemtime(public_path('js/gemini-live-native.js')) }}" defer></script>
-@else
-<script src="{{ versioned_asset('js/gemini-live.js') }}" defer></script>
-@endif

@@ -22,17 +22,17 @@ class AssistantVoiceTest extends AssistantTestCase
         ]);
         Http::fake(['generativelanguage.googleapis.com/*' => Http::response(['name' => 'native-token'])]);
 
-        $this->postJson(route('gemini-live.native-token'))
+        $response = $this->postJson(route('gemini-live.native-token'))
             ->assertOk()
-            ->assertExactJson([
-                'token' => 'native-token',
-                'model' => 'gemini-3.8-live-extended-thinking',
-            ]);
+            ->assertJsonPath('token', 'native-token')
+            ->assertJsonPath('model', 'gemini-3.8-live-extended-thinking');
+        $this->assertSame(30, substr_count((string) $response->json('knowledge_context'), 'Verified answer:'));
         Http::assertSent(fn (Request $request): bool => $request['uses'] === 1);
 
         $this->assertContains('web', Route::getRoutes()->getByName('gemini-live.native-token')->gatherMiddleware());
-        $disabledKnowledgeRoute = $this->postJson('/api/voice-assistant/live-knowledge', []);
-        $this->assertContains($disabledKnowledgeRoute->getStatusCode(), [404, 405]);
+        $this->postJson('/api/voice-assistant/live-knowledge', [])->assertMethodNotAllowed();
+        $this->postJson('/api/gemini-live/token', ['purpose' => 'speaker'])->assertMethodNotAllowed();
+        $this->assertNull(Route::getRoutes()->getByName('gemini-live.token'));
         Http::assertSentCount(1);
         $nativeClient = file_get_contents(public_path('js/gemini-live-native.js'));
         $this->assertIsString($nativeClient);
@@ -60,74 +60,14 @@ class AssistantVoiceTest extends AssistantTestCase
         $client = file_get_contents(public_path('js/gemini-live-native.js'));
 
         $this->assertIsString($client);
-        $this->assertStringContainsString('MODEL_ONLY_POLICY', $client);
-        $this->assertStringContainsString('toolsDeclared: false', $client);
+        $this->assertStringContainsString('const POLICY =', $client);
+        $this->assertStringContainsString('systemInstruction: { parts: instructionParts }', $client);
         $this->assertStringNotContainsString('functionDeclarations', $client);
         $this->assertStringNotContainsString('fetchTool(', $client);
         $this->assertStringNotContainsString('tool_session_id', $client);
+        $this->assertStringNotContainsString('/api/voice-assistant/live-knowledge', $client);
         // THIS IS NEW CODE — assert the endpoint remains under Laravel's session/CSRF web middleware. Reason: Laravel deliberately bypasses CSRF validation in its testing environment.
         $this->assertContains('web', Route::getRoutes()->getByName('gemini-live.native-token')->gatherMiddleware());
-    }
-
-    /** THIS IS NEW CODE — verify one-use Live tokens are restricted to supported models and matching setup modalities without billable audio. Reason: prevent browser setup from drifting from Google token constraints. */
-    public function test_live_tokens_are_constrained_to_the_requested_model_and_modality(): void
-    {
-        config([
-            'assistant.gemini_live.key' => 'test-live-key',
-            'assistant.gemini_live.model' => 'gemini-3.8-live-extended-thinking',
-            'assistant.gemini_live.transcription_model' => 'gemini-3.5-transcribe-live',
-        ]);
-        Http::fake(['generativelanguage.googleapis.com/*' => Http::sequence()
-            ->push(['name' => 'speaker-token'])
-            ->push(['name' => 'transcription-token'])]);
-
-        $this->postJson('/api/gemini-live/token', ['purpose' => 'speaker'])
-            ->assertOk()
-            ->assertJson(['token' => 'speaker-token', 'model' => 'gemini-3.8-live-extended-thinking'])
-            ->assertHeaderContains('Cache-Control', 'no-store');
-        $this->postJson('/api/gemini-live/token', ['purpose' => 'transcription'])
-            ->assertOk()
-            ->assertJson(['token' => 'transcription-token', 'model' => 'gemini-3.5-transcribe-live']);
-
-        // OLD CODE — NOT USED NOW: these checks matched the rejected legacy field.
-        // Http::assertSent(fn ($request): bool => $request['liveConnectConstraints']['model'] === 'models/gemini-3.8-live');
-        // Http::assertSent(fn ($request): bool => $request['liveConnectConstraints']['model'] === 'models/gemini-3.5-transcribe-live'
-        //     && $request['liveConnectConstraints']['config']['inputAudioTranscription']['languageCodes'] === []);
-        // THIS IS NEW CODE — assert Google's current AuthToken resource shape. Reason: the endpoint's live schema expects bidiGenerateContentSetup, not the legacy wrapper.
-        Http::assertSent(fn ($request): bool => $request['uses'] === 1
-            && $request['bidiGenerateContentSetup']['model'] === 'models/gemini-3.8-live-extended-thinking'
-            && $request['bidiGenerateContentSetup']['generationConfig']['responseModalities'] === ['AUDIO']
-            && $request['bidiGenerateContentSetup']['generationConfig']['thinkingConfig']['thinkingLevel'] === 'LOW'
-            && $request['bidiGenerateContentSetup']['generationConfig']['speechConfig']['voiceConfig']['prebuiltVoiceConfig']['voiceName'] === 'Aoede'
-            && $request['bidiGenerateContentSetup']['systemInstruction']['parts'][0]['text'] === 'You are a speech renderer. Speak the exact text supplied by the client, verbatim. Do not add, remove, or infer any information.'
-            && isset($request['bidiGenerateContentSetup']['outputAudioTranscription']));
-        Http::assertSent(fn ($request): bool => $request['uses'] === 1
-            && $request['bidiGenerateContentSetup']['model'] === 'models/gemini-3.5-transcribe-live'
-            && $request['bidiGenerateContentSetup']['generationConfig']['responseModalities'] === ['TEXT']
-            && $request['bidiGenerateContentSetup']['inputAudioTranscription']['languageCodes'] === []);
-    }
-
-    /** THIS IS NEW CODE — verify browser setup waits for Extended Thinking IDLE and suppresses intermediate speech. Reason: turnComplete alone is not the end of an Extended Thinking interaction. */
-    public function test_live_browser_handles_extended_thinking_idle_and_audio_buffering(): void
-    {
-        $script = file_get_contents(public_path('js/gemini-live.js'));
-
-        $this->assertIsString($script);
-        $this->assertStringContainsString("requiresInteractionIdle = model.endsWith('/gemini-3.8-live-extended-thinking')", $script);
-        $this->assertStringContainsString("interactionStatus === 'IN_PROGRESS'", $script);
-        $this->assertStringContainsString("interactionStatus === 'IDLE'", $script);
-        $this->assertStringContainsString('pendingAnswerAudioChunks = []', $script);
-        $this->assertStringContainsString("speakerGenerationConfig.thinkingConfig = { thinkingLevel: 'LOW' }", $script);
-    }
-
-    /** THIS IS NEW CODE — reject arbitrary Live token purposes without contacting Google. Reason: only issue approved audio and transcription credentials. */
-    public function test_live_token_rejects_unknown_purpose_without_provider_request(): void
-    {
-        config(['assistant.gemini_live.key' => 'test-live-key']);
-        Http::fake();
-
-        $this->postJson('/api/gemini-live/token', ['purpose' => 'other'])->assertUnprocessable();
-        Http::assertNothingSent();
     }
 
     /** THIS IS NEW CODE — verify the exact welcome and startup sequence. Reason: a displayed greeting must finish before microphone access or capture starts. */
@@ -142,21 +82,17 @@ class AssistantVoiceTest extends AssistantTestCase
         $this->assertIsString($script);
         $welcomePosition = strpos($script, 'Welcome to Rathinam AI. What information do you need?');
         $speechWaitPosition = strpos($script, 'await new Promise((resolve, reject) => {', $welcomePosition ?: 0);
-        $speechCallbackPosition = strpos($script, 'window.GeminiLive.speak(welcome, onDone)', $welcomePosition ?: 0);
         $nativeWelcomePosition = strpos($script, 'window.GeminiLiveNative.sayWelcome(welcome, onDone)', $welcomePosition ?: 0);
         $microphonePermissionPosition = strpos($script, 'const micError = await requestMicrophone();', $speechWaitPosition ?: 0);
         $microphoneStartPosition = strpos($script, 'await client.startMicrophone();', $microphonePermissionPosition ?: 0);
 
         $this->assertNotFalse($welcomePosition);
         $this->assertNotFalse($speechWaitPosition);
-        $this->assertNotFalse($speechCallbackPosition);
         $this->assertNotFalse($nativeWelcomePosition);
         $this->assertNotFalse($microphonePermissionPosition);
         $this->assertNotFalse($microphoneStartPosition);
-        $this->assertTrue($welcomePosition < $speechCallbackPosition);
         $this->assertTrue($welcomePosition < $nativeWelcomePosition);
         $this->assertTrue($speechWaitPosition < $microphonePermissionPosition);
-        $this->assertTrue($speechCallbackPosition < $microphonePermissionPosition);
         $this->assertTrue($microphonePermissionPosition < $microphoneStartPosition);
     }
 

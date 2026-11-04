@@ -243,9 +243,6 @@
     callStartedAt: 0,
     callTimer: null,
     callAttempt: 0,
-    lastLiveTranscript: "",
-    // THIS IS NEW CODE — track which Live transport owns this call. Reason: native speech must not fall through into the old transcript-to-Flash path.
-    nativeCall: false,
   };
 
   const t = (key, ...args) => {
@@ -262,8 +259,7 @@
       .slice(0, 1200);
   }
 
-  // THIS IS NEW CODE — route shared call controls to the selected Live transport. Reason: keep mute, playback and cleanup behavior consistent across native mode and rollback mode.
-  const liveClient = () => state.nativeCall ? window.GeminiLiveNative : window.GeminiLive;
+  const liveClient = () => window.GeminiLiveNative;
 
   /** A persona's text in the current language, falling back to English. */
   const personaText = (key, field) => {
@@ -324,7 +320,6 @@
   function continueConversation() {
     if (state.view === "call") {
       if (!state.micMuted) {
-        state.lastLiveTranscript = "";
         liveClient()?.resumeMicrophone();
         setStatus("listening");
       }
@@ -450,8 +445,6 @@
   async function startCall() {
     window.GeminiLiveNative?.unlockAudio?.();
     const attempt = ++state.callAttempt;
-    state.lastLiveTranscript = "";
-    state.nativeCall = false;
     joinPersonaConversation();
     state.micMuted = false;
     state.silentRounds = 0;
@@ -469,7 +462,7 @@
     state.player = state.player || new Audio();
     el.status.textContent = t("allowMic");
 
-    if (!window.GeminiLive && !window.GeminiLiveNative) {
+    if (!window.GeminiLiveNative) {
       // THIS IS NEW CODE — keep the existing Google TTS and browser recognition flow when the Live script fails to load.
       state.handsFree = true;
       state.greeted = null;
@@ -481,27 +474,10 @@
     try {
       // THIS IS NEW CODE — show the real connection phase before Live becomes ready. Reason: the header should describe connection progress accurately.
       setStatus("connecting");
-      // Use native Gemini Live audio with the model-only conversational policy.
-      if (root.dataset.nativeLive === "1" && window.GeminiLiveNative) {
-        try {
-          await window.GeminiLiveNative.connect({
-            csrf: config.csrf,
-            requestUrl: "/api/gemini-live/native-token",
-          });
-          state.nativeCall = true;
-        } catch (nativeError) {
-          console.warn("[Voice Assistant] Native Live setup failed.", {
-            requestId: window.GeminiLiveNative?.diagnosticSessionId || null,
-            errorName: nativeError?.name || "Error",
-            errorMessage: safeDiagnosticText(nativeError?.message || "Native Live setup failed."),
-            errorStack: safeDiagnosticText(nativeError?.stack || ""),
-          });
-          window.GeminiLiveNative?.disconnect();
-          throw nativeError;
-        }
-      } else {
-        await window.GeminiLive.connect();
-      }
+      await window.GeminiLiveNative.connect({
+        csrf: config.csrf,
+        requestUrl: "/api/gemini-live/native-token",
+      });
       const client = liveClient();
       if (attempt !== state.callAttempt || state.view !== "call") {
         client?.disconnect();
@@ -527,8 +503,7 @@
             window.clearTimeout(timeout);
             resolve();
           };
-          if (state.nativeCall) window.GeminiLiveNative.sayWelcome(welcome, onDone);
-          else window.GeminiLive.speak(welcome, onDone);
+          window.GeminiLiveNative.sayWelcome(welcome, onDone);
         } catch (error) {
           window.clearTimeout(timeout);
           resolve();
@@ -596,7 +571,7 @@
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (!AudioContext) return;
-      state.audio = window.GeminiLiveNative?.unlockAudio?.() || window.GeminiLive?.unlockAudio?.()
+      state.audio = window.GeminiLiveNative?.unlockAudio?.()
         || (state.audio && state.audio.state !== "closed" ? state.audio : new AudioContext());
       const context = state.audio;
       context.resume?.();
@@ -631,13 +606,10 @@
     stopSpeaking();
     // THIS IS NEW CODE — revoke the short-lived server capability when native mode ends. Reason: prevent late retrieval calls from surviving hang-up.
     window.GeminiLiveNative?.disconnect();
-    window.GeminiLive?.disconnect();
-    state.nativeCall = false;
     el.transcript.textContent = "";
     // THIS IS NEW CODE — clear server conversation linkage when the call ends. Reason: each voice call must start with a clean, current-call-only history.
     state.conversationId = null;
     state.greeted = null;
-    state.lastLiveTranscript = "";
     cancelConfirm();
     el.callNote.textContent = "";
     setView("intro");
@@ -854,14 +826,7 @@
         showCaption(data.answer, redirect);
         if (!el.panel.hidden) {
           const done = redirect ? () => openRedirect(redirect) : continueConversation;
-          if (state.view === "call" && !state.nativeCall && window.GeminiLive?.status() === "connected") {
-            if (state.muted) { if (!state.micMuted) liveClient()?.resumeMicrophone(); done(); }
-            else {
-              setStatus("speaking");
-              try { window.GeminiLive.speak(data.answer, () => { console.info("[RVA diagnostics] answer_audio_complete", { requestId: diagnosticRequestId, elapsedMs: Math.round(performance.now() - diagnosticStartedAt) }); if (!state.micMuted) liveClient()?.resumeMicrophone(); done(); }); }
-              catch { if (!state.micMuted) liveClient()?.resumeMicrophone(); speak(data.answer, data.language || lang, done); }
-            }
-          } else speak(data.answer, data.language || lang, done);
+          speak(data.answer, data.language || lang, done);
         }
         return;
       }
@@ -894,38 +859,19 @@
     el.caption.append(" ", link);
   }
 
-  window.addEventListener("gemini-live-interim-transcript", (event) => {
-    if (state.view === "call" && !state.micMuted) {
-      const text = event.detail?.text || "";
-      if (text && text !== state.lastLiveTranscript) state.lastLiveTranscript = "";
-      el.transcript.textContent = text;
-    }
-  });
-  window.addEventListener("gemini-live-user-transcript", (event) => {
-    if (state.view !== "call" || state.micMuted) return;
-    const text = String(event.detail?.text || "").trim();
-    if (!text || text === state.lastLiveTranscript) return;
-    state.lastLiveTranscript = text;
-    el.transcript.textContent = text;
-    state.silentRounds = 0;
-    if (state.nativeCall) return;
-    window.GeminiLive?.pauseMicrophone();
-    submit(text);
-  });
-  // THIS IS NEW CODE — display native transcription without submitting it to the legacy chat endpoint. Reason: Gemini Live itself now understands audio and must produce the response.
   window.addEventListener("gemini-live-native-transcript", (event) => {
-    if (state.view === "call" && state.nativeCall && !state.micMuted) el.transcript.textContent = String(event.detail?.text || "");
+    if (state.view === "call" && !state.micMuted) el.transcript.textContent = String(event.detail?.text || "");
   });
   // THIS IS NEW CODE — stream native Priya captions live to the UI so the user sees her spoken reply.
   window.addEventListener("gemini-live-native-caption", (event) => {
-    if (state.view === "call" && state.nativeCall) {
+    if (state.view === "call") {
       const text = String(event.detail?.text || "").trim();
       if (text) el.caption.textContent = text;
     }
   });
   // THIS IS NEW CODE — map native interaction lifecycle and playback events onto the existing call status. Reason: intermediate turnComplete must not reactivate the mic before final IDLE and playback completion.
   window.addEventListener("gemini-live-native-status", (event) => {
-    if (state.view !== "call" || !state.nativeCall) return;
+    if (state.view !== "call") return;
     const status = event.detail?.state;
     if (status === "thinking") setStatus("processing");
     else if (status === "speaking") setStatus("speaking");
@@ -933,7 +879,7 @@
   });
   // THIS IS NEW CODE — surface Live VAD interruptions immediately. Reason: drop queued assistant audio and allow the incoming speech to take priority.
   window.addEventListener("gemini-live-native-interrupted", () => {
-    if (state.view === "call" && state.nativeCall) {
+    if (state.view === "call") {
       el.caption.textContent = "";
       el.transcript.textContent = "";
       setStatus("interrupted");
@@ -947,11 +893,6 @@
     console.error("[Voice Assistant] Gemini Live Native error:", event.detail?.message || "unknown reason");
     setMicMuted(true, t("speechGeneric"));
     setStatus("idle");
-  });
-  window.addEventListener("gemini-live-connection-error", (event) => {
-    if (state.view !== "call" || state.micMuted) return;
-    console.error("[Voice Assistant] Gemini Live connection ended:", event.detail?.message || "unknown reason");
-    setMicMuted(true, t("speechGeneric"));
   });
 
   /** Only https links from the server's list are followed. */
@@ -1256,7 +1197,7 @@
   // el.startVoice.addEventListener("click", letsTalk);
   el.endCall.addEventListener("click", endCall);
   el.callMic.addEventListener("click", () => {
-    if (state.micMuted && liveClient()?.status() !== "connected" && !state.nativeCall) startCall();
+    if (state.micMuted && liveClient()?.status() !== "connected") startCall();
     else setMicMuted(!state.micMuted);
   });
   el.team.addEventListener("click", showTeam);

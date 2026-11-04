@@ -12,7 +12,6 @@ use App\Services\Assistant\TextToSpeechService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -22,105 +21,6 @@ use Illuminate\Support\Str;
  */
 class VoiceWidgetController extends Controller
 {
-    /** THIS IS NEW CODE ΓÇö search only approved Rathinam sources for a native Live tool call. Reason: let Live reason and speak while Laravel supplies concise verified facts. */
-    public function liveKnowledge(Request $request, AssistantService $assistant): JsonResponse
-    {
-        // THIS IS NEW CODE ΓÇö refuse every retrieval-tool request while diagnostic mode is active. Reason: no native Live tool call may reach any data or website source.
-        abort_unless(! config('assistant.diagnostic_mode'), 404);
-
-        $providedRequestId = (string) $request->header('X-Assistant-Request-Id', '');
-        $requestId = preg_match('/^[a-f0-9-]{36}$/i', $providedRequestId) === 1 ? $providedRequestId : (string) Str::uuid();
-
-        Log::info('[assistant.lifecycle] live_tool_call_received', [
-            'request_id' => $requestId,
-            'category' => (string) $request->input('category', 'general'),
-            'query_length' => mb_strlen((string) $request->input('query', '')),
-        ]);
-
-        $data = $request->validate([
-            'tool_session_id' => ['required', 'uuid'],
-            'tool_call_id' => ['required', 'string', 'max:256'],
-            'query' => ['required', 'string', 'min:2', 'max:240'],
-            'category' => ['nullable', 'string', 'max:64'],
-            'language' => ['nullable', 'string', 'max:16'],
-        ]);
-
-        $session = $request->session()->get('assistant_live_tool_session');
-        if (! is_array($session) && is_string($data['tool_session_id'] ?? null)) {
-            $cachedSession = Cache::get('assistant_live_tool_session_'.$data['tool_session_id']);
-            if (is_array($cachedSession)) {
-                $session = $cachedSession;
-            }
-        }
-        if (! is_array($session)
-            || ! is_string($session['id'] ?? null)
-            || ! hash_equals($session['id'], $data['tool_session_id'])
-            || (int) ($session['expires_at'] ?? 0) < now()->timestamp) {
-            Log::warning('[assistant.lifecycle] live_tool_session_invalid_or_expired', [
-                'request_id' => $requestId,
-                'session_valid' => is_array($session),
-                'session_matched' => is_array($session) && hash_equals($session['id'] ?? '', $data['tool_session_id']),
-            ]);
-
-            return response()->json(['status' => 'expired', 'not_found' => true, 'facts' => []], 401);
-        }
-
-        $callKey = 'assistant.live-tool-call.'.hash('sha256', $session['id'].'|'.$data['tool_call_id']);
-        try {
-            $cached = Cache::get($callKey);
-            if (is_array($cached) && ($cached['state'] ?? null) === 'complete') {
-                return response()->json($cached['result']);
-            }
-            if (! Cache::add($callKey, ['state' => 'processing'], now()->addMinutes(15))) {
-                return response()->json(['status' => 'duplicate', 'not_found' => true, 'facts' => []], 409);
-            }
-        } catch (\Throwable $exception) {
-            Log::warning('[assistant.lifecycle] live_tool_idempotency_unavailable', ['error_type' => class_basename($exception)]);
-
-            return response()->json(['status' => 'unavailable', 'not_found' => true, 'facts' => []], 503);
-        }
-
-        try {
-            $category = $data['category'] ?? 'general';
-            $result = $assistant->searchForLiveTool($data['query'], $requestId);
-            $result['query'] = mb_substr($data['query'], 0, 240);
-            $result['category'] = $category;
-            $result['language'] = $data['language'] ?? 'auto';
-            $currentSession = $request->session()->get('assistant_live_tool_session')
-                ?: Cache::get('assistant_live_tool_session_'.$data['tool_session_id']);
-            if (! is_array($currentSession) || ! hash_equals((string) ($currentSession['id'] ?? ''), $data['tool_session_id'])) {
-                Cache::forget($callKey);
-
-                return response()->json(['status' => 'expired', 'not_found' => true, 'facts' => []], 410);
-            }
-
-            Cache::put($callKey, ['state' => 'complete', 'result' => $result], now()->addMinutes(15));
-
-            return response()->json($result)->header('Cache-Control', 'no-store');
-        } catch (\Throwable $exception) {
-            Cache::forget($callKey);
-            Log::warning('[assistant.lifecycle] live_tool_call_failed', [
-                'request_id' => $requestId,
-                'error_type' => class_basename($exception),
-            ]);
-
-            return response()->json(['status' => 'unavailable', 'not_found' => true, 'facts' => []], 503);
-        }
-    }
-
-    /** THIS IS NEW CODE ΓÇö invalidate the session-bound Live tool capability when a call ends. Reason: prevent stale requests from a disconnected Live session. */
-    public function endLiveSession(Request $request): JsonResponse
-    {
-        $data = $request->validate(['tool_session_id' => ['required', 'uuid']]);
-        $session = $request->session()->get('assistant_live_tool_session');
-        if (is_array($session) && hash_equals((string) ($session['id'] ?? ''), $data['tool_session_id'])) {
-            $request->session()->forget('assistant_live_tool_session');
-        }
-        Cache::forget('assistant_live_tool_session_'.$data['tool_session_id']);
-
-        return response()->json(['success' => true])->header('Cache-Control', 'no-store');
-    }
-
     public function chat(Request $request, AssistantService $assistant): JsonResponse
     {
         // THIS IS NEW CODE ΓÇö correlate safe lifecycle timings without logging the visitor's question.

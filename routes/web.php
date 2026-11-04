@@ -113,8 +113,6 @@ Route::prefix('api/assistant')->name('assistant.')->controller(AssistantControll
 // Endpoints used by the floating widget (public/js/voice-assistant.js).
 Route::post('/api/voice-assistant/chat', [VoiceWidgetController::class, 'chat'])->middleware('throttle:assistant')->name('voice-assistant.chat');
 Route::post('/api/voice-assistant/speech', [VoiceWidgetController::class, 'speech'])->middleware('throttle:assistant-media')->name('voice-assistant.speech');
-Route::post('/api/voice-assistant/live-knowledge', [VoiceWidgetController::class, 'liveKnowledge'])->name('voice-assistant.live-knowledge');
-Route::post('/api/voice-assistant/live-session/end', [VoiceWidgetController::class, 'endLiveSession'])->name('voice-assistant.live-session.end');
 Route::post('/api/gemini-live/native-token', [GeminiLiveTokenController::class, 'native'])->middleware('throttle:assistant')->name('gemini-live.native-token');
 
 require __DIR__.'/admin.php';

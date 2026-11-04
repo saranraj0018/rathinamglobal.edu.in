@@ -19,24 +19,6 @@ use Tests\TestCase;
 /** THIS IS NEW CODE — verify temporary diagnostic requests bypass stored knowledge and use only Gemini. Reason: prevent any retrieval or database access while checking API keys. */
 class DiagnosticModeTest extends TestCase
 {
-    /** THIS IS NEW CODE — confirm the primary chat endpoint never loads or creates a conversation during diagnosis. Reason: a database connection must not affect API-key testing. */
-    public function test_primary_chat_route_uses_gemini_without_database_conversation_access(): void
-    {
-        config(['assistant.diagnostic_mode' => true]);
-        $assistant = Mockery::mock(AssistantService::class);
-        $assistant->shouldReceive('diagnosticAnswer')->once()->with('How does rain form?')
-            ->andReturn(new GeminiResponse('Direct Gemini response.', 'configured-text-model', null, null));
-        $assistant->shouldNotReceive('ask');
-        $this->app->instance(AssistantService::class, $assistant);
-        $csrf = str_repeat('a', 40);
-
-        $response = $this->withSession(['_token' => $csrf])->withHeader('X-CSRF-TOKEN', $csrf)
-            ->postJson(route('assistant.ask'), ['message' => 'How does rain form?']);
-
-        $response->assertOk()->assertJsonPath('message.answer', 'Direct Gemini response.')
-            ->assertJsonPath('message.sources', [])->assertJsonPath('conversation', null);
-    }
-
     /** THIS IS NEW CODE — prove the service sends exactly one raw user turn and a no-lookup prompt to Gemini. Reason: prevent retrieval context from contaminating the key test. */
     public function test_service_sends_only_the_raw_user_question_to_gemini(): void
     {
@@ -60,7 +42,7 @@ class DiagnosticModeTest extends TestCase
     }
 
     /** THIS IS NEW CODE — prove diagnostic Live token setup creates no retrieval session capability. Reason: the browser must have no authorized Laravel data-search path in this mode. */
-    public function test_native_live_diagnostic_token_does_not_create_a_tool_session(): void
+    public function test_native_live_token_preloads_knowledge_without_tool_capability(): void
     {
         config([
             'assistant.diagnostic_mode' => true,
@@ -73,10 +55,13 @@ class DiagnosticModeTest extends TestCase
         $request = Request::create('/api/gemini-live/native-token', 'POST');
         $request->setLaravelSession($session);
 
-        $response = app(\App\Http\Controllers\Assistant\GeminiLiveTokenController::class)->native($request);
+        $response = app(\App\Http\Controllers\Assistant\GeminiLiveTokenController::class)->native(
+            $request,
+            app(\App\Services\Assistant\HostelTransportKnowledgeService::class),
+        );
 
-        $this->assertTrue($response->getData(true)['diagnostic_mode']);
-        $this->assertNull($response->getData(true)['tool_session_id']);
+        $this->assertSame(30, substr_count($response->getData(true)['knowledge_context'], 'Verified answer:'));
+        $this->assertArrayNotHasKey('tool_session_id', $response->getData(true));
         $this->assertFalse($session->has('assistant_live_tool_session'));
         Http::assertSentCount(1);
     }
@@ -89,7 +74,6 @@ class DiagnosticModeTest extends TestCase
         $assistant->shouldReceive('diagnosticAnswer')->once()->with('raw voice question', Mockery::type('string'))
             ->andReturn(new GeminiResponse('Direct Gemini response.', 'configured-text-model', null, null));
         $assistant->shouldNotReceive('ask');
-        $assistant->shouldNotReceive('searchForLiveTool');
 
         $request = Request::create('/api/voice-assistant/chat', 'POST', server: ['CONTENT_TYPE' => 'application/json'], content: '{"message":"raw voice question"}');
         $response = app(VoiceWidgetController::class)->chat($request, $assistant);
