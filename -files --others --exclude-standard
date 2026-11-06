@@ -1,0 +1,19 @@
+ .../Assistant/GeminiLiveTokenController.php        | 111 [32m+[m[31m--[m
+ .../Assistant/VoiceWidgetController.php            | 100 [31m---[m
+ app/Providers/AppServiceProvider.php               |   8 [32m+[m
+ app/Services/Assistant/AssistantService.php        | 185 [31m----[m
+ bootstrap/app.php                                  |   1 [31m-[m
+ config/assistant.php                               |   4 [31m-[m
+ public/js/gemini-live.js                           | 944 [31m---------------------[m
+ public/js/voice-assistant.js                       |  87 [32m+[m[31m-[m
+ .../views/components/voice-assistant.blade.php     |   8 [32m+[m[31m-[m
+ routes/api.php                                     |   9 [31m-[m
+ routes/web.php                                     |   2 [31m-[m
+ tests/Feature/Assistant/AssistantModelOnlyTest.php |  77 [31m--[m
+ tests/Feature/Assistant/AssistantTwoPathTest.php   | 166 [32m+[m[31m---[m
+ tests/Feature/Assistant/AssistantVoiceTest.php     |  84 [32m+[m[31m-[m
+ tests/Unit/Assistant/DiagnosticModeTest.php        |  30 [32m+[m[31m-[m
+ tests/Unit/Assistant/NativeLiveToolTest.php        | 186 [31m----[m
+ .../Assistant/OfficialWebsiteSearchServiceTest.php |  55 [31m--[m
+ tests/js/native-live.test.js                       |  12 [32m+[m[31m-[m
+ 18 files changed, 47 insertions(+), 2022 deletions(-)

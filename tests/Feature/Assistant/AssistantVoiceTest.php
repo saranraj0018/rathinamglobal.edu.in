@@ -5,11 +5,97 @@ namespace Tests\Feature\Assistant;
 use App\Models\AssistantMessage;
 use App\Services\Assistant\TextToSpeechService;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Route;
 
 class AssistantVoiceTest extends AssistantTestCase
 {
+    /** Verify the native client accepts the token contract without starting retrieval or contacting Gemini. */
+    public function test_native_live_token_contract_matches_the_model_only_client(): void
+    {
+        config([
+            'assistant.gemini_live.key' => 'test-live-key',
+            'assistant.gemini_live.model' => 'gemini-3.8-live-extended-thinking',
+            'assistant.gemini_live.url' => 'https://generativelanguage.googleapis.com/v1beta',
+        ]);
+        Http::fake(['generativelanguage.googleapis.com/*' => Http::response(['name' => 'native-token'])]);
+
+        $response = $this->postJson(route('gemini-live.native-token'))
+            ->assertOk()
+            ->assertJsonPath('token', 'native-token')
+            ->assertJsonPath('model', 'gemini-3.8-live-extended-thinking');
+        $this->assertSame(30, substr_count((string) $response->json('knowledge_context'), 'Verified answer:'));
+        Http::assertSent(fn (Request $request): bool => $request['uses'] === 1);
+
+        $this->assertContains('web', Route::getRoutes()->getByName('gemini-live.native-token')->gatherMiddleware());
+        $this->postJson('/api/voice-assistant/live-knowledge', [])->assertMethodNotAllowed();
+        $this->postJson('/api/gemini-live/token', ['purpose' => 'speaker'])->assertMethodNotAllowed();
+        $this->assertNull(Route::getRoutes()->getByName('gemini-live.token'));
+        Http::assertSentCount(1);
+        $nativeClient = file_get_contents(public_path('js/gemini-live-native.js'));
+        $this->assertIsString($nativeClient);
+        $this->assertStringNotContainsString('tool_session_id', $nativeClient);
+        $this->assertStringNotContainsString('functionDeclarations', $nativeClient);
+    }
+
+    public function test_native_live_token_provider_failure_is_returned_as_502(): void
+    {
+        config([
+            'assistant.gemini_live.key' => 'test-live-key',
+            'assistant.gemini_live.model' => 'gemini-3.8-live-extended-thinking',
+        ]);
+        Http::fake(['generativelanguage.googleapis.com/*' => Http::response(['error' => ['message' => 'temporary failure']], 503)]);
+
+        $this->postJson(route('gemini-live.native-token'))
+            ->assertStatus(502)
+            ->assertJson(['error' => 'Unable to start the native voice assistant.']);
+
+        Http::assertSentCount(1);
+    }
+
+    public function test_native_live_setup_does_not_declare_or_call_knowledge_tools(): void
+    {
+        $client = file_get_contents(public_path('js/gemini-live-native.js'));
+
+        $this->assertIsString($client);
+        $this->assertStringContainsString('const POLICY =', $client);
+        $this->assertStringContainsString('systemInstruction: { parts: instructionParts }', $client);
+        $this->assertStringNotContainsString('functionDeclarations', $client);
+        $this->assertStringNotContainsString('fetchTool(', $client);
+        $this->assertStringNotContainsString('tool_session_id', $client);
+        $this->assertStringNotContainsString('/api/voice-assistant/live-knowledge', $client);
+        // THIS IS NEW CODE — assert the endpoint remains under Laravel's session/CSRF web middleware. Reason: Laravel deliberately bypasses CSRF validation in its testing environment.
+        $this->assertContains('web', Route::getRoutes()->getByName('gemini-live.native-token')->gatherMiddleware());
+    }
+
+    /** THIS IS NEW CODE — verify the exact welcome and startup sequence. Reason: a displayed greeting must finish before microphone access or capture starts. */
+    public function test_priya_welcome_is_exact_and_spoken_before_microphone_startup(): void
+    {
+        $persona = require resource_path('data/assistant-personas.php');
+        $script = file_get_contents(public_path('js/voice-assistant.js'));
+
+        $this->assertSame('Welcome to Rathinam AI. What information do you need?', $persona['admissions']['greeting']['en']);
+        $this->assertSame('ரத்தினம் AI-க்கு வரவேற்கிறோம். உங்களுக்கு என்ன தகவல் தேவை?', $persona['admissions']['greeting']['ta']);
+        $this->assertSame('Rathinam AI Assistant', $persona['admissions']['role']['en']);
+        $this->assertIsString($script);
+        $welcomePosition = strpos($script, 'Welcome to Rathinam AI. What information do you need?');
+        $speechWaitPosition = strpos($script, 'await new Promise((resolve, reject) => {', $welcomePosition ?: 0);
+        $nativeWelcomePosition = strpos($script, 'window.GeminiLiveNative.sayWelcome(welcome, onDone)', $welcomePosition ?: 0);
+        $microphonePermissionPosition = strpos($script, 'const micError = await requestMicrophone();', $speechWaitPosition ?: 0);
+        $microphoneStartPosition = strpos($script, 'await client.startMicrophone();', $microphonePermissionPosition ?: 0);
+
+        $this->assertNotFalse($welcomePosition);
+        $this->assertNotFalse($speechWaitPosition);
+        $this->assertNotFalse($nativeWelcomePosition);
+        $this->assertNotFalse($microphonePermissionPosition);
+        $this->assertNotFalse($microphoneStartPosition);
+        $this->assertTrue($welcomePosition < $nativeWelcomePosition);
+        $this->assertTrue($speechWaitPosition < $microphonePermissionPosition);
+        $this->assertTrue($microphonePermissionPosition < $microphoneStartPosition);
+    }
+
     private function answeredMessage(string $language = 'en', string $text = 'The BCA fee is Rs 85,000.'): int
     {
         $this->bcaFeeFaq();

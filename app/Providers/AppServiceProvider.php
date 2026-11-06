@@ -2,6 +2,10 @@
 
 namespace App\Providers;
 
+use App\Models\Faq;
+use App\Models\FaqCategory;
+use App\Models\KnowledgeDocument;
+use App\Observers\KnowledgeObserver;
 use App\Services\Assistant\GeminiService;
 use App\Services\Assistant\TextToSpeechService;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -20,6 +24,10 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         URL::forceHttps($this->app->isProduction());
+
+        Faq::observe(KnowledgeObserver::class);
+        FaqCategory::observe(KnowledgeObserver::class);
+        KnowledgeDocument::observe(KnowledgeObserver::class);
 
         // Keyed by IP: a session key resets whenever a bot drops its cookies.
         RateLimiter::for('brochure-leads', function (Request $request): Limit {

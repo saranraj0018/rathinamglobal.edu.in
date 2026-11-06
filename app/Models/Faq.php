@@ -2,16 +2,13 @@
 
 namespace App\Models;
 
-use App\Observers\KnowledgeObserver;
 use Database\Factories\FaqFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[ObservedBy(KnowledgeObserver::class)]
 #[Fillable([
     'faq_category_id', 'question_en', 'answer_en', 'question_ta', 'answer_ta',
     'keywords', 'variations', 'is_active', 'published_at',

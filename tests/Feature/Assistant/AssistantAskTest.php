@@ -7,8 +7,10 @@ use App\Models\AssistantSetting;
 use App\Models\Faq;
 use App\Models\KnowledgeChunk;
 use App\Models\KnowledgeDocument;
+use App\Services\Assistant\KnowledgeSearchService;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 class AssistantAskTest extends AssistantTestCase
 {
@@ -169,7 +171,10 @@ class AssistantAskTest extends AssistantTestCase
         Http::fake(['*' => Http::response(['error' => ['status' => 'UNAVAILABLE', 'message' => 'overloaded']], 503)]);
         $this->ask('BCA fee?');
         $this->assertDatabaseHas('assistant_messages', ['error_reason' => 'unavailable']);
-        Http::assertSentCount(3);
+        // OLD CODE — NOT USED NOW: the previous retry policy sent the same unavailable question three times.
+        // Http::assertSentCount(3);
+        // THIS IS NEW CODE — text generation makes one bounded attempt. Reason: retrying three 20-second calls exceeded the browser's 30-second request deadline.
+        Http::assertSentCount(1);
     }
 
     public function test_unpublished_and_disabled_faqs_are_never_retrieved(): void
@@ -201,6 +206,10 @@ class AssistantAskTest extends AssistantTestCase
     public function test_deleted_and_unpublished_documents_are_not_retrieved(): void
     {
         $document = KnowledgeDocument::factory()->create(['title' => 'Hostel rules', 'content' => 'The hostel curfew is 9 pm for all residents.']);
+        // THIS IS NEW CODE — verify the document observer created the expected retrieval row. Reason: distinguish indexing failures from question relevance failures in this regression.
+        $this->assertDatabaseHas('knowledge_chunks', ['source_type' => 'document', 'source_id' => $document->id]);
+        // THIS IS NEW CODE — confirm the published chunk can be found with the same retrieval service used by the assistant. Reason: distinguish indexing failures from question relevance failures.
+        $this->assertNotEmpty(app(KnowledgeSearchService::class)->search('What is the hostel curfew?'));
         $this->fakeGemini();
 
         $this->assertSame('answered', $this->ask('What is the hostel curfew?')['message']['status']);
@@ -251,6 +260,9 @@ class AssistantAskTest extends AssistantTestCase
 
         $this->flushSession();
         $this->app['session.store']->flush();
+        // THIS IS NEW CODE — create a matching CSRF token for the simulated second visitor. Reason: the deliberate session reset invalidates the first visitor's test token.
+        $csrfToken = Str::random(40);
+        $this->withSession(['_token' => $csrfToken])->withHeader('X-CSRF-TOKEN', $csrfToken);
         $this->postJson(route('assistant.ask'), ['message' => 'and the fees?', 'conversation' => $conversation])->assertNotFound();
         $this->getJson(route('assistant.history', $conversation))->assertNotFound();
         $message = AssistantMessage::first();
@@ -298,6 +310,18 @@ class AssistantAskTest extends AssistantTestCase
             && $request->header('x-goog-api-key') === ['test-key']
             && isset($request['systemInstruction'], $request['generationConfig']['maxOutputTokens'])
             && ! str_contains($request->url(), 'test-key'));
+    }
+
+    /** THIS IS NEW CODE — guard against routing the Live-only model through the text generation endpoint. */
+    public function test_live_only_configured_model_uses_a_text_capable_fallback(): void
+    {
+        config(['assistant.gemini.model' => 'gemini-3.1-flash-live-preview']);
+        $this->bcaFeeFaq();
+        $this->fakeGemini('The BCA annual fee is Rs 85,000.');
+
+        $this->ask('BCA fee?');
+
+        Http::assertSent(fn (Request $request): bool => $request->url() === 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent');
     }
 
     public function test_greeting_gets_a_canned_reply_without_calling_gemini(): void

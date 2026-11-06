@@ -4,13 +4,12 @@ use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\FaqCategoryController;
 use App\Http\Controllers\Admin\FaqController;
-use App\Http\Controllers\Admin\KnowledgeDocumentController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\UnansweredQuestionController;
 use Illuminate\Support\Facades\Route;
 
 /*
-| Admin area for the AI assistant: FAQs, knowledge documents, analytics.
+| Admin area for the AI assistant: FAQs and analytics.
 | Uses the existing users table; only users with is_admin may enter.
 */
 
@@ -26,7 +25,6 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         Route::resource('faqs', FaqController::class)->except('show');
         Route::resource('categories', FaqCategoryController::class)->only(['index', 'store', 'update', 'destroy'])
             ->parameters(['categories' => 'category']);
-        Route::resource('documents', KnowledgeDocumentController::class)->except('show');
 
         Route::get('/unanswered', [UnansweredQuestionController::class, 'index'])->name('unanswered');
         Route::post('/unanswered/{message}/dismiss', [UnansweredQuestionController::class, 'dismiss'])->name('unanswered.dismiss');

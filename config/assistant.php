@@ -14,6 +14,9 @@
 
 return [
 
+    // Configurable diagnostic mode: when true, bypasses retrieval to test Gemini API key directly.
+    'diagnostic_mode' => (bool) env('ASSISTANT_DIAGNOSTIC_MODE', false),
+
     'enabled' => (bool) env('ASSISTANT_ENABLED', true),
 
     /** Language used when the visitor's message gives no signal: ta | en. */
@@ -28,6 +31,14 @@ return [
     /** Normalised relevance (0-1) a chunk needs to count as an answer. */
     'min_relevance_score' => (float) env('ASSISTANT_MIN_RELEVANCE_SCORE', 0.25),
 
+    // Simplified two-path architecture: General Gemini Intelligence + Hostel & Transport only.
+    'hostel_only_knowledge' => (bool) env('ASSISTANT_HOSTEL_ONLY_KNOWLEDGE', true),
+
+    // THIS IS NEW CODE — enable approved bundled facts while the live index is incomplete. Reason: local DB has no BCA coverage.
+    'temporary_knowledge_mode' => (bool) env('ASSISTANT_TEMPORARY_KNOWLEDGE_MODE', true),
+
+    // THIS IS NEW CODE — allow retrieval from the canonical Rathinam host. Reason: local index lacks course coverage.
+    'official_website' => ['enabled' => (bool) env('ASSISTANT_OFFICIAL_WEBSITE_ENABLED', false)],
     'max_message_length' => (int) env('ASSISTANT_MAX_MESSAGE_LENGTH', 500),
 
     /** Maximum characters per knowledge chunk when long content is split. */
@@ -37,11 +48,22 @@ return [
         'key' => env('GEMINI_API_KEY'),
         'model' => env('GEMINI_MODEL'),
         'url' => rtrim((string) env('GEMINI_API_URL', 'https://generativelanguage.googleapis.com/v1beta'), '/'),
-        'timeout' => (int) env('GEMINI_TIMEOUT', 20),
-        'max_output_tokens' => (int) env('GEMINI_MAX_OUTPUT_TOKENS', 700),
-        'temperature' => 0.2,
+        // OLD CODE — NOT USED NOW: the 20-second default made one generation call consume most of the browser's 30-second deadline.
+        // 'timeout' => (int) env('GEMINI_TIMEOUT', 20),
+        'timeout' => (int) env('GEMINI_TIMEOUT', 15),
+        'max_output_tokens' => (int) env('GEMINI_MAX_OUTPUT_TOKENS', 800),
         'retries' => (int) env('GEMINI_RETRIES', 2),
-        'retry_delay_ms' => 500,
+        'retry_delay_ms' => 600,
+    ],
+    // Separate Gemini Live configuration
+    'gemini_live' => [
+        'key' => env('GEMINI_LIVE_API_KEY'),
+        // OLD CODE — NOT USED NOW: the default previously pointed at the standard Live model; set GEMINI_LIVE_MODEL=gemini-3.8-live to switch back.
+        // THIS IS NEW CODE — default to the requested Extended Thinking Live model when the environment does not specify one. Reason: keep Laravel and the browser token on the intended Live model.
+        'model' => env('GEMINI_LIVE_MODEL', 'gemini-3.8-live-extended-thinking'),
+        // THIS IS NEW CODE — bound ephemeral-token provisioning to the same short upstream budget used by text generation.
+        'token_timeout' => (int) env('GEMINI_LIVE_TOKEN_TIMEOUT', 8),
+        'url' => 'https://generativelanguage.googleapis.com/v1beta',
     ],
 
     'google' => [

@@ -2,15 +2,12 @@
 
 namespace App\Models;
 
-use App\Observers\KnowledgeObserver;
 use Database\Factories\KnowledgeDocumentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[ObservedBy(KnowledgeObserver::class)]
 #[Fillable(['title', 'category', 'language', 'content', 'keywords', 'status', 'source_file'])]
 class KnowledgeDocument extends Model
 {
